@@ -7,7 +7,8 @@ cd "$(dirname "$0")/.."
 CLEAN=scripts/clean.yq
 R=manifests
 CONTEXT=${CONTEXT:-nautilus-readonly}
-rm -rf "$R"
+# Clear the files this script generates; SealedSecrets come from scripts/seal.sh.
+find "$R" -name "*.yaml" ! -name "*-sealedsecret.yaml" -delete 2>/dev/null || true
 while read -r dir objs; do
   mkdir -p "$R/$dir"
   for o in $objs; do

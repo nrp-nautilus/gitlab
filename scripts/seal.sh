@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
-# Seal Secrets from the gitlab namespace into manifests/secrets/ as SealedSecrets.
+# Seal Secrets from the gitlab namespace into SealedSecrets under manifests/.
 # Each Secret is piped straight into kubeseal; plaintext never touches disk.
-# usage: scripts/seal.sh [secret-name...]   (default: every Secret in SECRETS)
+# A Secret that's already sealed is rewritten in place; a new one goes to DIR.
+# usage: [DIR=manifests/<component>] scripts/seal.sh [secret-name...]
+#        (default: every Secret in SECRETS)
 set -euo pipefail
 cd "$(dirname "$0")/.."
 CONTEXT=${CONTEXT:-nautilus-readonly}
 CERT=${CERT:-pub-cert.pem}
-OUT=manifests/secrets
+DIR=${DIR:-manifests/gitlab}
 
 # Hand-made Secrets that workloads use. Operator, cert-manager and per-job
 # Secrets are left to the controllers that create them.
@@ -20,8 +22,9 @@ SECRETS=(
 )
 [ $# -gt 0 ] && SECRETS=("$@")
 
-mkdir -p "$OUT"
 for s in "${SECRETS[@]}"; do
+  out=$(find manifests -name "$s-sealedsecret.yaml" | head -1)
+  out=${out:-$DIR/$s-sealedsecret.yaml}
   kubectl --context "$CONTEXT" -n gitlab get secret "$s" -o json |
     jq '{apiVersion, kind, type, data,
          metadata: (.metadata | {name, namespace, labels}
@@ -30,6 +33,6 @@ for s in "${SECRETS[@]}"; do
     kubeseal --cert "$CERT" --format yaml |
     yq '.metadata.annotations["argocd.argoproj.io/sync-options"] = "Prune=false,Delete=false"
         | del(.metadata.creationTimestamp, .spec.template.metadata.creationTimestamp)' \
-    > "$OUT/$s-sealedsecret.yaml"
-  echo "sealed $s"
+    > "$out"
+  echo "sealed $s -> $out"
 done

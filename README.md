@@ -13,13 +13,14 @@ ArgoCD (`argocd/application.yaml`, in the `argo` namespace) syncs everything und
 | `manifests/database` | Zalando `postgresql` cluster `gitlab-db` |
 | `manifests/vms` | KubeVirt runner VMs |
 | `manifests/storage` | Standalone PVCs (including the 6Ti GitLab data volume) |
-| `manifests/secrets` | SealedSecrets for the hand-made Secrets the workloads use |
 
 ## Secrets
 
-This repo is public, so Secrets are committed only as SealedSecrets. They're encrypted with the
-cluster's sealed-secrets controller key (`pub-cert.pem`, namespace `sealed-secrets-operator`).
-To add or update one, change the Secret in the cluster and run `scripts/seal.sh <name>`, then commit.
+This repo is public, so Secrets are committed only as SealedSecrets (`*-sealedsecret.yaml`, next to
+the workload that uses them). They're encrypted with the cluster's sealed-secrets controller key
+(`pub-cert.pem`, namespace `sealed-secrets-operator`). To update one, change the Secret in the
+cluster, run `scripts/seal.sh <name>` and commit. For a new one, add it to `SECRETS` in the script
+and run `DIR=manifests/<component> scripts/seal.sh <name>`.
 To fetch a fresh cert after the controller rotates keys:
 
     kubeseal --controller-namespace sealed-secrets-operator --controller-name sealed-secrets --fetch-cert > pub-cert.pem
