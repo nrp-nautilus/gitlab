@@ -1,0 +1,132 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gitlab-runner-arnoc
+  namespace: gitlab
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 0
+  revisionHistoryLimit: 1
+  selector:
+    matchLabels:
+      app: gitlab-runner-arnoc
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: gitlab-runner-arnoc
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: env
+                    operator: In
+                    values:
+                      - system
+      containers:
+        - args:
+            - run
+          image: gitlab/gitlab-runner:v19.1.5
+          imagePullPolicy: IfNotPresent
+          name: runner
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+            - mountPath: /etc/gitlab-runner
+              name: config
+      dnsPolicy: ClusterFirst
+      initContainers:
+        - args:
+            - register
+          env:
+            - name: CI_SERVER_URL
+              value: https://gitlab.nrp-nautilus.io/
+            - name: REGISTER_NON_INTERACTIVE
+              value: "true"
+            - name: REGISTRATION_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  key: arnoc
+                  name: gitlab-runner-token
+            - name: RUNNER_EXECUTOR
+              value: kubernetes
+            - name: RUNNER_REQUEST_CONCURRENCY
+              value: "4"
+            - name: KUBERNETES_NAMESPACE
+              value: gitlab
+            - name: KUBERNETES_CPU_LIMIT
+              value: "16"
+            - name: KUBERNETES_MEMORY_LIMIT
+              value: 64Gi
+            - name: KUBERNETES_CPU_REQUEST
+              value: "8"
+            - name: KUBERNETES_MEMORY_REQUEST
+              value: 64Gi
+            - name: KUBERNETES_NODE_TOLERATIONS
+              value: nautilus.io/noceph=true:NoSchedule
+            - name: KUBERNETES_PULL_POLICY
+              value: always
+            - name: REGISTER_LOCKED
+              value: "false"
+            - name: KUBERNETES_NODE_SELECTOR
+              value: gitlab-worker:true
+            - name: RUNNER_OUTPUT_LIMIT
+              value: "32768"
+            - name: CACHE_TYPE
+              value: s3
+            - name: CACHE_SHARED
+              value: "true"
+            - name: CACHE_S3_SERVER_ADDRESS
+              value: s3-west.nrp-nautilus.io
+            - name: CACHE_S3_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  key: accesskey
+                  name: runner-cache
+            - name: CACHE_S3_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  key: secretkey
+                  name: runner-cache
+            - name: CACHE_S3_BUCKET_NAME
+              value: runners-cache
+            - name: CACHE_S3_INSECURE
+              value: "false"
+          image: gitlab/gitlab-runner:v19.1.5
+          imagePullPolicy: IfNotPresent
+          name: init-runner
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+            - mountPath: /etc/gitlab-runner
+              name: config
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      serviceAccount: runner
+      serviceAccountName: runner
+      terminationGracePeriodSeconds: 30
+      tolerations:
+        - effect: NoSchedule
+          key: nautilus.io/ceph
+          operator: Exists
+        - effect: NoSchedule
+          key: nautilus.io/system
+          operator: Exists
+      volumes:
+        - emptyDir: {}
+          name: config

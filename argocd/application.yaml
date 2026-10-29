@@ -1,0 +1,41 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: gitlab
+  namespace: argo
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/nrp-nautilus/gitlab.git
+    targetRevision: main
+    path: manifests
+    directory:
+      recurse: true
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: gitlab
+  ignoreDifferences:
+    # Stamped by the cluster's admission webhook on every workload write.
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /metadata/annotations/nrp.ai~1username
+    - group: apps
+      kind: StatefulSet
+      jsonPointers:
+        - /metadata/annotations/nrp.ai~1username
+    # VMs are started and stopped with virtctl, which edits these fields.
+    - group: kubevirt.io
+      kind: VirtualMachine
+      jsonPointers:
+        - /spec/running
+        - /spec/runStrategy
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=false
+      - ServerSideApply=true
+      - RespectIgnoreDifferences=true
+      - PruneLast=true

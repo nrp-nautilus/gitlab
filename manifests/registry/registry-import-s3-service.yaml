@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: gitlab-reg
+    purpose: registry-metadata-db
+  name: registry-import-s3
+  namespace: gitlab
+spec:
+  ports:
+    - name: http
+      port: 80
+      protocol: TCP
+      targetPort: 80
+  sessionAffinity: None
+  type: ClusterIP

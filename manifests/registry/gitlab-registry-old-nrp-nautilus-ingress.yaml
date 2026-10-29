@@ -1,0 +1,33 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    haproxy-ingress.github.io/config-backend: |
+      http-response set-header Referrer-Policy no-referrer
+    haproxy-ingress.github.io/hsts: "true"
+    haproxy-ingress.github.io/hsts-max-age: "31536000"
+    haproxy-ingress.github.io/max-body-size: "0"
+    haproxy-ingress.github.io/ssl-redirect: "true"
+    haproxy-ingress.github.io/timeout-client: 6h
+    haproxy-ingress.github.io/timeout-http-request: 6h
+    haproxy-ingress.github.io/timeout-server: 6h
+  labels:
+    name: gitlab-registry-old
+  name: gitlab-registry-old-nrp-nautilus
+  namespace: gitlab
+spec:
+  ingressClassName: haproxy
+  rules:
+    - host: gitlab-registry.nrp-nautilus.io
+      http:
+        paths:
+          - backend:
+              service:
+                name: gitlab-registry
+                port:
+                  number: 5000
+            path: /
+            pathType: ImplementationSpecific
+  tls:
+    - hosts:
+        - gitlab-registry.nrp-nautilus.io

@@ -1,0 +1,45 @@
+apiVersion: acid.zalan.do/v1
+kind: postgresql
+metadata:
+  name: gitlab-db
+  namespace: gitlab
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
+spec:
+  databases:
+    gitlab_production: gitlab
+    registry: registry
+  dockerImage: ghcr.io/zalando/spilo-17:4.0-p3
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: topology.kubernetes.io/region
+              operator: In
+              values:
+                - us-west
+  numberOfInstances: 4
+  postgresql:
+    parameters:
+      shared_buffers: 2GB
+      work_mem: 256MB
+    version: "17"
+  resources:
+    limits:
+      cpu: "8"
+      memory: 8Gi
+    requests:
+      cpu: "8"
+      memory: 4Gi
+  teamId: gitlab
+  tolerations:
+    - effect: NoSchedule
+      key: nautilus.io/system
+      operator: Exists
+  users:
+    gitlab:
+      - superuser
+    registry: []
+  volume:
+    size: 50Gi
+    storageClass: linstor-ha

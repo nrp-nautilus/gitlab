@@ -1,0 +1,266 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: gitlab
+    name: gitlab
+  name: gitlab
+  namespace: gitlab
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: gitlab
+      name: gitlab
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: gitlab
+        name: gitlab
+    spec:
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - preference:
+                matchExpressions:
+                  - key: kubernetes.io/hostname
+                    operator: In
+                    values:
+                      - k8s-nvme-01.sdsc.optiputer.net
+                      - k8s-epyc-01.sdsc.optiputer.net
+                      - k8s-s-00.sdsc.optiputer.net
+              weight: 100
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: topology.kubernetes.io/region
+                    operator: In
+                    values:
+                      - us-west
+      containers:
+        - command:
+            - sh
+            - -c
+            - |
+              userdel ubuntu
+              mkdir -p /var/spool/cron/crontabs
+              cat > /var/spool/cron/crontabs/root <<'EOF'
+              0 4 * * * (echo "$(date -u -Iseconds) start"; /opt/gitlab/bin/gitlab-backup create CRON=1 SKIP=ci_secure_files; rc=$?; echo "$(date -u -Iseconds) exit $rc") >> /var/opt/gitlab/backup.log 2>&1
+              EOF
+              busybox crond -b -L /var/log/gitlab/crond.log
+              exec /assets/init-container
+          env:
+            - name: GITLAB_OMNIBUS_CONFIG
+              value: from_file '/opt/gitlab-config/base.rb'
+            - name: TZ
+              value: America/Los_Angeles
+            - name: GITLAB_SECRETS_DB_KEY_BASE
+              valueFrom:
+                secretKeyRef:
+                  key: dbkey
+                  name: gitlab
+            - name: GITLAB_SECRETS_SECRET_KEY_BASE
+              valueFrom:
+                secretKeyRef:
+                  key: secretkey
+                  name: gitlab
+            - name: GITLAB_SECRETS_OTP_KEY_BASE
+              valueFrom:
+                secretKeyRef:
+                  key: otpkey
+                  name: gitlab
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  key: username
+                  name: gitlab.gitlab-db.credentials.postgresql.acid.zalan.do
+            - name: DB_PASS
+              valueFrom:
+                secretKeyRef:
+                  key: password
+                  name: gitlab.gitlab-db.credentials.postgresql.acid.zalan.do
+            - name: SMTP_PASS
+              valueFrom:
+                secretKeyRef:
+                  key: smtppw
+                  name: gitlab
+            - name: IMAP_PASS
+              valueFrom:
+                secretKeyRef:
+                  key: smtppw
+                  name: gitlab
+            - name: GCS_BACKUP_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  key: gcpkey
+                  name: gitlab
+            - name: GCS_BACKUP_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  key: gcpsecret
+                  name: gitlab
+            - name: OAUTH2_GENERIC_APP_ID
+              valueFrom:
+                secretKeyRef:
+                  key: key
+                  name: authentik-oauth
+            - name: OAUTH2_GENERIC_APP_SECRET
+              valueFrom:
+                secretKeyRef:
+                  key: secret
+                  name: authentik-oauth
+            - name: OAUTH_GITLAB_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  key: key
+                  name: gitlab-oauth
+            - name: OAUTH_GITLAB_APP_SECRET
+              valueFrom:
+                secretKeyRef:
+                  key: secret
+                  name: gitlab-oauth
+            - name: OAUTH_GITHUB_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  key: key
+                  name: github-oauth
+            - name: OAUTH_GITHUB_APP_SECRET
+              valueFrom:
+                secretKeyRef:
+                  key: secret
+                  name: github-oauth
+            - name: OAUTH_GOOGLE_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  key: key
+                  name: google-oauth
+            - name: OAUTH_GOOGLE_APP_SECRET
+              valueFrom:
+                secretKeyRef:
+                  key: secret
+                  name: google-oauth
+          image: gitlab/gitlab-ee:19.1.9-ee.0
+          imagePullPolicy: IfNotPresent
+          name: gitlab
+          ports:
+            - containerPort: 80
+              name: http
+              protocol: TCP
+            - containerPort: 22
+              name: ssh
+              protocol: TCP
+            - containerPort: 8090
+              name: pages
+              protocol: TCP
+          readinessProbe:
+            exec:
+              command:
+                - /opt/gitlab/embedded/bin/curl
+                - --fail
+                - --silent
+                - --show-error
+                - --output
+                - /dev/null
+                - --max-time
+                - "30"
+                - http://localhost:80/-/health
+            failureThreshold: 3
+            initialDelaySeconds: 120
+            periodSeconds: 20
+            successThreshold: 1
+            timeoutSeconds: 35
+          resources:
+            limits:
+              memory: 32Gi
+            requests:
+              cpu: "12"
+              memory: 16Gi
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+            - mountPath: /home/git/data
+              name: data
+            - mountPath: /etc/gitlab-registry
+              name: ssl
+              readOnly: true
+            - mountPath: /etc/gitlab
+              name: state
+              subPath: etc
+            - mountPath: /var/opt/gitlab
+              name: state
+              subPath: var
+            - mountPath: /var/log/gitlab
+              name: logs
+            - mountPath: /dev/shm
+              name: shm
+            - mountPath: /opt/gitlab-config
+              name: config
+      dnsPolicy: ClusterFirst
+      initContainers:
+        - command:
+            - sh
+            - -c
+            - |
+              set -e
+              for f in /ssh-host-keys/ssh_host_*; do
+                k=/etc/gitlab/$(basename $f)
+                [ -f "$k" ] && continue
+                cp "$f" "$k"
+                case "$k" in *.pub) chmod 0644 "$k";; *) chmod 0600 "$k";; esac
+              done
+              ls -l /etc/gitlab
+          image: gitlab/gitlab-ee:19.1.9-ee.0
+          imagePullPolicy: IfNotPresent
+          name: host-keys
+          resources:
+            limits:
+              memory: 256Mi
+            requests:
+              cpu: 100m
+              memory: 64Mi
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+            - mountPath: /etc/gitlab
+              name: state
+              subPath: etc
+            - mountPath: /ssh-host-keys
+              name: ssh-host-keys
+              readOnly: true
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      terminationGracePeriodSeconds: 30
+      tolerations:
+        - effect: NoSchedule
+          key: nautilus.io/system
+          operator: Exists
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: gitlab
+        - name: state
+          persistentVolumeClaim:
+            claimName: gitlab-state
+        - name: ssl
+          secret:
+            defaultMode: 256
+            secretName: ssl-key
+        - emptyDir: {}
+          name: logs
+        - emptyDir:
+            medium: Memory
+            sizeLimit: 256Mi
+          name: shm
+        - configMap:
+            defaultMode: 420
+            name: gitlab-config
+          name: config
+        - name: ssh-host-keys
+          secret:
+            defaultMode: 256
+            secretName: gitlab-ssh-host-keys

@@ -1,0 +1,85 @@
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  name: runner2
+  namespace: gitlab
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
+spec:
+  dataVolumeTemplates:
+    - metadata:
+        name: runner2-root
+      spec:
+        pvc:
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: 20Gi
+          storageClassName: rook-ceph-block
+        source:
+          http:
+            url: https://cloud-images.ubuntu.com/releases/24.04/release/ubuntu-24.04-server-cloudimg-amd64.img
+  runStrategy: Always
+  template:
+    metadata: {}
+    spec:
+      accessCredentials:
+        - sshPublicKey:
+            propagationMethod:
+              configDrive: {}
+            source:
+              secret:
+                secretName: runners-pub-keys
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: topology.kubernetes.io/zone
+                    operator: In
+                    values:
+                      - ucsd
+                      - ucsd-nrp
+                      - ucsd-sdsc
+      architecture: amd64
+      domain:
+        cpu:
+          cores: 12
+        devices:
+          autoattachGraphicsDevice: true
+          autoattachSerialConsole: true
+          disks:
+            - disk:
+                bus: virtio
+              name: harddrive
+            - bootOrder: 1
+              disk:
+                bus: virtio
+              name: rootdisk
+            - disk:
+                bus: virtio
+              name: cloudinit
+        firmware:
+          serial: 5f158865-edb4-47f3-bf59-ba169e431942
+          uuid: 3e7d010c-e673-45bb-a1ef-e591dca940d4
+        machine:
+          type: q35
+        resources:
+          limits:
+            cpu: "12"
+            memory: 48Gi
+          requests:
+            cpu: "12"
+            memory: 48Gi
+      volumes:
+        - dataVolume:
+            name: runner2-root
+          name: rootdisk
+        - emptyDisk:
+            capacity: 300Gi
+          name: harddrive
+        - cloudInitConfigDrive:
+            secretRef:
+              name: runner2-userdata
+          name: cloudinit

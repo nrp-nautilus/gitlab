@@ -1,0 +1,12 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: registry
+  namespace: gitlab
+spec:
+  endpoints:
+    - interval: 15s
+      port: metrics
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: gitlab-registry

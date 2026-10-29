@@ -1,0 +1,18 @@
+apiVersion: v1
+data:
+  redis.conf: |
+    port 6379
+    dir /data
+    appendonly yes
+    save ""
+    rename-command FLUSHDB ""
+    rename-command FLUSHALL ""
+    # requirepass and masterauth, written from the Secret at start
+    include /tmp/auth.conf
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/instance: registry-redis
+    app.kubernetes.io/name: redis
+  name: registry-redis-config
+  namespace: gitlab

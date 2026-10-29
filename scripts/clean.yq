@@ -1,0 +1,10 @@
+del(.status) |
+del(.metadata.uid, .metadata.resourceVersion, .metadata.generation, .metadata.creationTimestamp, .metadata.managedFields, .metadata.selfLink, .metadata.finalizers) |
+del(.metadata.annotations["kubectl.kubernetes.io/last-applied-configuration"], .metadata.annotations["deployment.kubernetes.io/revision"], .metadata.annotations["kopf.zalando.org/last-handled-configuration"], .metadata.annotations["meta.helm.sh/release-name"], .metadata.annotations["meta.helm.sh/release-namespace"], .metadata.annotations["pv.kubernetes.io/bind-completed"], .metadata.annotations["pv.kubernetes.io/bound-by-controller"], .metadata.annotations["volume.beta.kubernetes.io/storage-provisioner"], .metadata.annotations["volume.kubernetes.io/storage-provisioner"], .metadata.annotations["kubemacpool.io/transaction-timestamp"], .metadata.annotations["kubevirt.io/latest-observed-api-version"], .metadata.annotations["kubevirt.io/storage-observed-api-version"], .metadata.annotations["nrp.ai/username"]) |
+del(.metadata.labels["app.kubernetes.io/managed-by"], .metadata.labels["helm.sh/chart"]) |
+del(.spec.template.metadata.creationTimestamp, .spec.template.metadata.annotations["kubectl.kubernetes.io/restartedAt"]) |
+del(.spec.clusterIP, .spec.clusterIPs, .spec.ipFamilies, .spec.ipFamilyPolicy, .spec.internalTrafficPolicy) |
+del(.spec.volumeName, .spec.volumeMode) |
+del(.metadata.annotations | select(length == 0)) |
+del(.metadata.labels | select(length == 0)) |
+del(.spec.template.metadata.annotations | select(length == 0))

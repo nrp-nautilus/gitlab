@@ -1,0 +1,14 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: gitlab-nrp-nautilus
+  namespace: gitlab
+spec:
+  commonName: gitlab.nrp-nautilus.io
+  dnsNames:
+    - gitlab.nrp-nautilus.io
+    - gitlab-registry.nrp-nautilus.io
+  issuerRef:
+    kind: ClusterIssuer
+    name: constellix-nrp-nautilus
+  secretName: gitlab-nrp-nautilus-tls

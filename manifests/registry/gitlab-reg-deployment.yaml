@@ -1,0 +1,136 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: gitlab-reg
+    k8slens-edit-resource-version: v1
+    name: gitlab-reg
+  name: gitlab-reg
+  namespace: gitlab
+spec:
+  progressDeadlineSeconds: 2147483647
+  replicas: 4
+  revisionHistoryLimit: 2147483647
+  selector:
+    matchLabels:
+      app: gitlab-reg
+      name: gitlab-reg
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: gitlab-reg
+        name: gitlab-reg
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: topology.kubernetes.io/region
+                    operator: In
+                    values:
+                      - us-west
+                  - key: topology.kubernetes.io/zone
+                    operator: NotIn
+                    values:
+                      - sdsu
+                      - sdsu-rci
+      containers:
+        - env:
+            - name: REGISTRY_HTTP_ADDR
+              value: 0.0.0.0:5000
+            - name: REGISTRY_STORAGE
+              value: s3
+            - name: REGISTRY_HTTP_DEBUG_PROMETHEUS_ENABLED
+              value: "true"
+            - name: REGISTRY_HTTP_DEBUG_ADDR
+              value: 0.0.0.0:5001
+            - name: REGISTRY_STORAGE_S3_REGION
+              value: nautilus
+            - name: REGISTRY_STORAGE_S3_SECURE
+              value: "true"
+            - name: REGISTRY_STORAGE_S3_REGIONENDPOINT
+              value: https://s3-west.nrp-nautilus.io
+            - name: REGISTRY_STORAGE_S3_ACCESSKEY
+              valueFrom:
+                secretKeyRef:
+                  key: REGISTRY_STORAGE_S3_ACCESSKEY
+                  name: gitlab-reg-secrets
+            - name: REGISTRY_STORAGE_S3_SECRETKEY
+              valueFrom:
+                secretKeyRef:
+                  key: REGISTRY_STORAGE_S3_SECRETKEY
+                  name: gitlab-reg-secrets
+            - name: REGISTRY_STORAGE_S3_BUCKET
+              value: container-registry
+            - name: REGISTRY_AUTH_TOKEN_SERVICE
+              value: container_registry
+            - name: REGISTRY_HTTP_SECRET
+              valueFrom:
+                secretKeyRef:
+                  key: REGISTRY_HTTP_SECRET
+                  name: gitlab-reg-secrets
+            - name: REGISTRY_AUTH_TOKEN_REALM
+              value: https://gitlab.nrp-nautilus.io/jwt/auth
+            - name: REGISTRY_STORAGE_REDIRECT_DISABLE
+              value: "false"
+            - name: REGISTRY_AUTH_TOKEN_ISSUER
+              value: gitlab-issuer
+            - name: REGISTRY_STORAGE_CACHE_BLOBDESCRIPTOR
+              value: redis
+            - name: REGISTRY_STORAGE_S3_CHUNKSIZE
+              value: "67108864"
+            - name: REGISTRY_STORAGE_S3_MULTIPARTCOPYCHUNKSIZE
+              value: "134217728"
+            - name: REGISTRY_STORAGE_S3_MULTIPARTCOPYTHRESHOLDSIZE
+              value: "134217728"
+            - name: REGISTRY_AUTH_TOKEN_ROOTCERTBUNDLE
+              value: /ssl/registry.crt
+            - name: REGISTRY_STORAGE_DELETE_ENABLED
+              value: "true"
+            - name: REGISTRY_REDIS_ADDR
+              value: registry-redis-master:6379
+            - name: REGISTRY_REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: redis-password
+                  name: registry-redis
+          image: registry.gitlab.com/gitlab-org/build/cng/gitlab-container-registry:v4.40.1-gitlab
+          imagePullPolicy: Always
+          name: registry
+          ports:
+            - containerPort: 5000
+              name: registry
+              protocol: TCP
+          resources:
+            limits:
+              memory: 4Gi
+            requests:
+              cpu: 250m
+              memory: 4Gi
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+            - mountPath: /ssl
+              name: ssl
+            - mountPath: /etc/docker/registry
+              name: config
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      terminationGracePeriodSeconds: 30
+      volumes:
+        - configMap:
+            defaultMode: 420
+            name: registry-config
+          name: config
+        - name: ssl
+          secret:
+            defaultMode: 420
+            secretName: ssl-key

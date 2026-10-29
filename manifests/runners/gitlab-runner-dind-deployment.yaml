@@ -1,0 +1,251 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: gitlab-runner-dind
+  name: gitlab-runner-dind
+  namespace: gitlab
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 1
+  revisionHistoryLimit: 2
+  selector:
+    matchLabels:
+      app: gitlab-runner-dind
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: gitlab-runner-dind
+    spec:
+      containers:
+        - env:
+            - name: DOCKER_TLS_CERTDIR
+            - name: DOCKER_HOST
+              value: tcp://0.0.0.0:2375
+            - name: DOCKER_DRIVER
+              value: overlay2
+            - name: DOCKER_LIVE_RESTORE
+              value: "false"
+          image: docker:28.5.2-dind
+          imagePullPolicy: IfNotPresent
+          lifecycle:
+            preStop:
+              exec:
+                command:
+                  - sh
+                  - -c
+                  - docker stop --time 30 $(docker ps -q) 2>/dev/null || true
+          livenessProbe:
+            exec:
+              command:
+                - docker
+                - info
+            failureThreshold: 5
+            initialDelaySeconds: 20
+            periodSeconds: 20
+            successThreshold: 1
+            timeoutSeconds: 1
+          name: dind
+          readinessProbe:
+            exec:
+              command:
+                - docker
+                - info
+            failureThreshold: 15
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 1
+          resources:
+            limits:
+              cpu: "8"
+              memory: 16Gi
+            requests:
+              cpu: 500m
+              memory: 1Gi
+          securityContext:
+            allowPrivilegeEscalation: true
+            capabilities:
+              add:
+                - SYS_ADMIN
+                - NET_ADMIN
+              drop:
+                - ALL
+            privileged: true
+            runAsUser: 0
+            seccompProfile:
+              type: Unconfined
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+            - mountPath: /var/lib/docker
+              name: dind-storage
+        - args:
+            - run
+            - --config
+            - /etc/gitlab-runner/config.toml
+          env:
+            - name: RUNNER_CONCURRENT
+              value: "2"
+            - name: DOCKER_HOST
+              value: tcp://127.0.0.1:2375
+          image: gitlab/gitlab-runner:v19.1.5
+          imagePullPolicy: Always
+          name: runner
+          resources:
+            limits:
+              cpu: "8"
+              memory: 32Gi
+            requests:
+              cpu: 200m
+              memory: 512Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            runAsUser: 0
+            seccompProfile:
+              type: RuntimeDefault
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+            - mountPath: /etc/gitlab-runner
+              name: config
+            - mountPath: /cache
+              name: cache
+            - mountPath: /tmp
+              name: tmp
+      dnsPolicy: ClusterFirst
+      initContainers:
+        - args:
+            - |
+              set -eu
+              if [ -s /etc/gitlab-runner/config.toml ]; then
+                echo "Runner config already present."
+                exit 0
+              fi
+              # Pod /etc/resolv.conf → cluster DNS (e.g. kube-dns). Skip loopback/stub resolvers.
+              KUBEDNS=""
+              for ns in $(awk '/^nameserver[[:space:]]/{print $2}' /etc/resolv.conf); do
+                case "$ns" in
+                  127.0.0.11|127.0.0.53|0.0.0.0) continue ;;
+                  *) KUBEDNS="$ns"; break ;;
+                esac
+              done
+              [ -n "$KUBEDNS" ] || KUBEDNS="10.96.0.10"
+              echo "docker executor DNS: 127.0.0.11 + ${KUBEDNS}"
+              # Do NOT use exec here: the shell must continue to verify/copy config onto the shared volume.
+              gitlab-runner register \
+                --non-interactive \
+                --config /etc/gitlab-runner/config.toml \
+                --url "${CI_SERVER_URL}" \
+                --registration-token "${REGISTRATION_TOKEN}" \
+                --name "${RUNNER_NAME}" \
+                --executor docker \
+                --docker-image "${RUNNER_DOCKER_IMAGE}" \
+                --docker-host "tcp://127.0.0.1:2375" \
+                --docker-tlsverify=false \
+                --docker-privileged \
+                --docker-dns "127.0.0.11" \
+                --docker-dns "${KUBEDNS}" \
+                --docker-extra-hosts "docker:172.17.0.1" \
+                --docker-volumes "/cache" \
+                --tag-list "${RUNNER_TAG_LIST}" \
+                --run-untagged="${RUNNER_RUN_UNTAGGED}" \
+                --locked="${RUNNER_LOCKED}"
+              if [ ! -s /etc/gitlab-runner/config.toml ]; then
+                for src in \
+                  /root/.gitlab-runner/config.toml \
+                  /home/gitlab-runner/.gitlab-runner/config.toml \
+                  /home/ubuntu/.gitlab-runner/config.toml; do
+                  if [ -s "$src" ]; then
+                    cp -f "$src" /etc/gitlab-runner/config.toml
+                    break
+                  fi
+                done
+              fi
+              [ -s /etc/gitlab-runner/config.toml ] || { echo "config.toml missing after register"; ls -laR /etc/gitlab-runner /root/.gitlab-runner 2>/dev/null || true; exit 1; }
+              chmod 600 /etc/gitlab-runner/config.toml
+              ls -la /etc/gitlab-runner
+          command:
+            - sh
+            - -c
+          env:
+            - name: CI_SERVER_URL
+              value: https://gitlab.nrp-nautilus.io/
+            - name: REGISTRATION_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  key: general
+                  name: gitlab-runner-token
+            - name: RUNNER_NAME
+              value: gitlab-runner-dind-pinned
+            - name: RUNNER_DOCKER_IMAGE
+              value: docker:27-git
+            - name: RUNNER_TAG_LIST
+              value: docker,dind,pinned
+            - name: RUNNER_RUN_UNTAGGED
+              value: "false"
+            - name: RUNNER_LOCKED
+              value: "false"
+          image: gitlab/gitlab-runner:v19.1.5
+          imagePullPolicy: Always
+          name: init-runner
+          resources:
+            limits:
+              cpu: "1"
+              memory: 512Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            runAsUser: 0
+            seccompProfile:
+              type: RuntimeDefault
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+            - mountPath: /etc/gitlab-runner
+              name: config
+      nodeSelector:
+        kubernetes.io/hostname: aarch64.calit2.optiputer.net
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext:
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      serviceAccount: runner
+      serviceAccountName: runner
+      terminationGracePeriodSeconds: 30
+      tolerations:
+        - effect: NoSchedule
+          key: nautilus.io/ceph
+          operator: Exists
+        - effect: NoSchedule
+          key: nautilus.io/hardware
+          operator: Equal
+          value: arm64
+        - effect: NoSchedule
+          key: nautilus.io/system
+          operator: Equal
+          value: gitlab
+      volumes:
+        - emptyDir: {}
+          name: config
+        - emptyDir:
+            sizeLimit: 80Gi
+          name: dind-storage
+        - emptyDir:
+            sizeLimit: 20Gi
+          name: cache
+        - emptyDir:
+            sizeLimit: 2Gi
+          name: tmp

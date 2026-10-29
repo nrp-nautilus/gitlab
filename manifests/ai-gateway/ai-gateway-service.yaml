@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: ai-gateway
+  name: ai-gateway
+  namespace: gitlab
+spec:
+  ports:
+    - name: http
+      port: 5052
+      protocol: TCP
+      targetPort: 5052
+    - name: grpc
+      port: 50052
+      protocol: TCP
+      targetPort: 50052
+  selector:
+    app: ai-gateway
+  sessionAffinity: None
+  type: ClusterIP

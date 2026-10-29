@@ -1,0 +1,44 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    haproxy-ingress.github.io/denylist-source-range: 197.156.78.187/32,43.172.0.0/15
+    haproxy-ingress.github.io/forwarded-for: "true"
+    haproxy-ingress.github.io/hsts: "true"
+    haproxy-ingress.github.io/hsts-max-age: "31536000"
+    haproxy-ingress.github.io/max-body-size: "0"
+    haproxy-ingress.github.io/ssl-redirect: "true"
+    haproxy-ingress.github.io/timeout-client: 6h
+    haproxy-ingress.github.io/timeout-http-request: 6h
+    haproxy-ingress.github.io/timeout-server: 6h
+  labels:
+    name: gitlab
+  name: gitlab-nrp-nautilus
+  namespace: gitlab
+spec:
+  ingressClassName: haproxy
+  rules:
+    - host: gitlab.nrp-nautilus.io
+      http:
+        paths:
+          - backend:
+              service:
+                name: gitlab
+                port:
+                  number: 80
+            path: /
+            pathType: ImplementationSpecific
+    - host: '*.pages.nrp-nautilus.io'
+      http:
+        paths:
+          - backend:
+              service:
+                name: gitlab
+                port:
+                  number: 8090
+            path: /
+            pathType: ImplementationSpecific
+  tls:
+    - hosts:
+        - gitlab.nrp-nautilus.io
+        - '*.pages.nrp-nautilus.io'

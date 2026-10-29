@@ -1,0 +1,152 @@
+apiVersion: v1
+data:
+  base.rb: |
+    # NRP GitLab (official gitlab/gitlab-ee image), loaded through GITLAB_OMNIBUS_CONFIG.
+    # Secrets come from env vars set by secretKeyRef; none are written here.
+
+    # The data volume's files belong to uid/gid 1000; the container command deletes
+    # the image's ubuntu user (1000) before init so git can take that id.
+    manage_accounts['enable'] = true
+    user['uid'] = 1000
+    user['gid'] = 1000
+
+    # TLS ends at the haproxy ingress.
+    external_url 'https://gitlab.nrp-nautilus.io'
+    nginx['listen_port'] = 80
+    nginx['listen_https'] = false
+    # Keep the client address the ingress sends: the image's default X-Forwarded-For is $remote_addr, which here is
+    # the ingress pod, so every client shared its per-IP Rack::Attack limits (2026-10-22, fixed by an NRP admin).
+    nginx['proxy_set_headers'] = {
+      'X-Forwarded-For' => '$proxy_add_x_forwarded_for',
+      'X-Forwarded-Proto' => 'https',
+      'X-Forwarded-Ssl' => 'on',
+    }
+    letsencrypt['enable'] = false
+    gitlab_rails['time_zone'] = 'America/Los_Angeles'
+
+    gitlab_rails['db_key_base'] = ENV['GITLAB_SECRETS_DB_KEY_BASE']
+    gitlab_rails['secret_key_base'] = ENV['GITLAB_SECRETS_SECRET_KEY_BASE']
+    gitlab_rails['otp_key_base'] = ENV['GITLAB_SECRETS_OTP_KEY_BASE']
+
+    # The Zalando cluster gitlab-db.
+    postgresql['enable'] = false
+    gitlab_rails['db_host'] = 'gitlab-db'
+    gitlab_rails['db_port'] = 5432
+    gitlab_rails['db_database'] = 'gitlab_production'
+    gitlab_rails['db_username'] = ENV['DB_USER']
+    gitlab_rails['db_password'] = ENV['DB_PASS']
+
+    # Data volume (pvc/gitlab) at /home/git/data.
+    gitaly['configuration'] = { storage: [{ name: 'default', path: '/home/git/data/repositories' }] }
+    gitlab_rails['shared_path'] = '/home/git/data/shared'
+    gitlab_rails['artifacts_path'] = '/home/git/data/shared/artifacts'
+    gitlab_rails['lfs_storage_path'] = '/home/git/data/shared/lfs-objects'
+    gitlab_rails['packages_storage_path'] = '/home/git/data/shared/packages'
+    gitlab_rails['pages_path'] = '/home/git/data/shared/pages'
+    gitlab_rails['terraform_state_storage_path'] = '/home/git/data/shared/terraform_state'
+    gitlab_rails['ci_secure_files_storage_path'] = '/home/git/data/shared/ci_secure_files'
+    gitlab_rails['dependency_proxy_storage_path'] = '/home/git/data/shared/dependency_proxy'
+    gitlab_rails['uploads_directory'] = '/home/git/data/uploads'
+    gitlab_ci['builds_directory'] = '/home/git/data/builds'
+    gitlab_rails['backup_path'] = '/home/git/data/backups'
+
+    # The registry runs separately (gitlab-reg); keep the key it verifies tokens with.
+    registry['enable'] = false
+    registry['internal_key'] = File.read('/etc/gitlab-registry/registry.key')
+    gitlab_rails['registry_enabled'] = true
+    gitlab_rails['registry_host'] = 'gitlab-registry.nrp-nautilus.io'
+    # No registry_port: a port would show in image paths and CI_REGISTRY as host:443.
+    gitlab_rails['registry_api_url'] = 'https://gitlab-registry.nrp-nautilus.io'
+    gitlab_rails['registry_issuer'] = 'gitlab-issuer'
+    gitlab_rails['registry_path'] = '/home/git/data/shared/registry'
+
+    # The ingress sends *.pages.nrp-nautilus.io to port 8090.
+    pages_external_url 'https://pages.nrp-nautilus.io'
+    pages_nginx['enable'] = false
+    gitlab_pages['listen_proxy'] = '0.0.0.0:8090'
+    # Reach the API through this pod's nginx, not back through the public ingress.
+    gitlab_pages['internal_gitlab_server'] = 'http://127.0.0.1'
+
+    gitlab_rails['gitlab_ssh_host'] = 'gitlab-ssh.nrp-nautilus.io'
+    gitlab_rails['gitlab_shell_ssh_port'] = 30622
+
+    gitlab_rails['smtp_enable'] = true
+    gitlab_rails['smtp_address'] = 'mx.nrp-nautilus.io'
+    gitlab_rails['smtp_port'] = 587
+    gitlab_rails['smtp_user_name'] = 'gitlab@nrp-nautilus.io'
+    gitlab_rails['smtp_password'] = ENV['SMTP_PASS']
+    gitlab_rails['smtp_domain'] = 'nrp-nautilus.io'
+    gitlab_rails['smtp_authentication'] = 'plain'
+    gitlab_rails['smtp_enable_starttls_auto'] = true
+    gitlab_rails['gitlab_email_from'] = 'gitlab@nrp-nautilus.io'
+    gitlab_rails['gitlab_email_reply_to'] = 'gitlab@nrp-nautilus.io'
+    gitlab_rails['incoming_email_enabled'] = true
+    gitlab_rails['incoming_email_address'] = 'gitlab@nrp-nautilus.io'
+    gitlab_rails['incoming_email_email'] = 'gitlab@nrp-nautilus.io'
+    gitlab_rails['incoming_email_password'] = ENV['IMAP_PASS']
+    gitlab_rails['incoming_email_host'] = 'mx.nrp-nautilus.io'
+    gitlab_rails['incoming_email_port'] = 993
+    gitlab_rails['incoming_email_ssl'] = true
+    gitlab_rails['incoming_email_start_tls'] = false
+    gitlab_rails['incoming_email_delivery_method'] = 'sidekiq'
+
+    # identities.provider holds 'Authentik' for the generic provider: keep args.name.
+    gitlab_rails['omniauth_enabled'] = true
+    gitlab_rails['omniauth_allow_single_sign_on'] = []
+    gitlab_rails['omniauth_block_auto_created_users'] = true
+    gitlab_rails['omniauth_auto_link_user'] = []
+    gitlab_rails['omniauth_providers'] = [
+      { name: 'github', label: 'GitHub', app_id: ENV['OAUTH_GITHUB_API_KEY'], app_secret: ENV['OAUTH_GITHUB_APP_SECRET'],
+        url: 'https://github.com/', verify_ssl: true, args: { scope: 'user:email' } },
+      { name: 'gitlab', label: 'GitLab.com', app_id: ENV['OAUTH_GITLAB_API_KEY'], app_secret: ENV['OAUTH_GITLAB_APP_SECRET'],
+        args: { scope: 'api' } },
+      { name: 'google_oauth2', label: 'Google', app_id: ENV['OAUTH_GOOGLE_API_KEY'], app_secret: ENV['OAUTH_GOOGLE_APP_SECRET'],
+        args: { access_type: 'offline', approval_prompt: '' } },
+      { name: 'oauth2_generic', app_id: ENV['OAUTH2_GENERIC_APP_ID'], app_secret: ENV['OAUTH2_GENERIC_APP_SECRET'],
+        args: { client_options: { site: 'https://authentik.nrp-nautilus.io', user_info_url: '/application/o/userinfo/',
+                                  authorize_url: '/application/o/authorize/', token_url: '/application/o/token/',
+                                  end_session_endpoint: '/application/o/gitlab/end-session/' },
+                user_response_structure: { id_path: 'sub', attributes: { uid: 'sub', name: 'name', email: 'email' } },
+                authorize_params: { scope: 'openid profile email' }, label: 'Authentik', name: 'Authentik' } },
+    ]
+
+    gitlab_ci['gitlab_ci_all_broken_builds'] = true
+    gitlab_ci['gitlab_ci_add_pusher'] = false
+    gitlab_rails['gitlab_default_theme'] = 2
+    gitlab_rails['lfs_enabled'] = true
+    gitlab_rails['packages_enabled'] = true
+    gitlab_rails['dependency_proxy_enabled'] = true
+    gitlab_rails['rack_attack_git_basic_auth'] = {
+      'enabled' => true, 'ip_whitelist' => ['127.0.0.1'], 'maxretry' => 10, 'findtime' => 60, 'bantime' => 3600,
+    }
+    # EE workers start at ~1.3 GB RSS: at 1400 MB the memory watchdog restarted all six every ~6 minutes
+    # (2026-10-24). Each worker is one busy core under the anonymous GraphQL crawl of public repositories.
+    puma['worker_processes'] = 10
+    puma['per_worker_max_memory_mb'] = 2048
+    sidekiq['concurrency'] = 25
+    prometheus_monitoring['enable'] = false
+    # GitLab agent server (KAS) for the agent for Kubernetes: agents connect to
+    # wss://gitlab.nrp-nautilus.io/-/kubernetes-agent/ through this pod's nginx.
+    gitlab_kas['enable'] = true
+
+    gitlab_rails['backup_keep_time'] = 172800
+    # Google Cloud Storage through its S3-compatible XML API with the same HMAC keys, so the tarball goes up in parts
+    # that are retried one by one. The Google provider sent all ~250 GB as one PUT for hours; it often ended in
+    # SSL_read EOF and some days never arrived.
+    gitlab_rails['backup_upload_connection'] = {
+      'provider' => 'AWS',
+      'endpoint' => 'https://storage.googleapis.com',
+      'region' => 'auto',
+      'path_style' => true,
+      'aws_access_key_id' => ENV['GCS_BACKUP_ACCESS_KEY_ID'],
+      'aws_secret_access_key' => ENV['GCS_BACKUP_SECRET_ACCESS_KEY'],
+    }
+    # 256 MiB parts: ~940 for a 250 GB tarball (10,000 at most).
+    gitlab_rails['backup_multipart_chunk_size'] = 268435456
+    gitlab_rails['backup_upload_remote_directory'] = 'nautilus-gitlab'
+kind: ConfigMap
+metadata:
+  labels:
+    app: gitlab
+  name: gitlab-config
+  namespace: gitlab
