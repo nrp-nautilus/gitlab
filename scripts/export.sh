@@ -24,7 +24,6 @@ database postgresql/gitlab-db
 vms virtualmachine/arm-runner virtualmachine/runner1 virtualmachine/runner1-golden virtualmachine/runner2
 storage persistentvolumeclaim/arm-runner-hd persistentvolumeclaim/gitlab persistentvolumeclaim/gitlab-state persistentvolumeclaim/makisu-redis persistentvolumeclaim/runner-hd
 LIST
-for f in "$R"/vms/*.yaml; do yq -i 'del(.spec.dataVolumeTemplates[].metadata.creationTimestamp)' "$f"; done
 for f in "$R"/storage/*.yaml "$R"/vms/*.yaml "$R"/database/*.yaml; do
   yq -i '.metadata.annotations["argocd.argoproj.io/sync-options"] = "Prune=false,Delete=false" | .metadata |= (pick(["name","namespace"]) * .)' "$f"
 done

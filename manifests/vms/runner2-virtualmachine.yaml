@@ -9,6 +9,7 @@ spec:
   dataVolumeTemplates:
     - metadata:
         name: runner2-root
+        creationTimestamp: null
       spec:
         pvc:
           accessModes:
