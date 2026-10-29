@@ -33,7 +33,8 @@ SealedSecrets have `Prune=false,Delete=false`, because deleting a SealedSecret g
 
 ## Not in git
 
-- **The `runner1-setup` ConfigMap**, which has a runner token inline.
+- **The `runner1-setup` ConfigMap**, which has a runner token inline. Its script is kept, with
+  the token taken from `RUNNER_TOKEN`, as `scripts/runner1-setup.sh`; the ConfigMap can be deleted.
 - **Unreferenced Secrets**: `k3s`, `runner3-userdata`, `runner4-userdata`, `runner5-userdata`,
   `runner5-userdata-secret` and `runners-pub-keys-fixed`. (`gitlab-secrets-json` isn't
   referenced either, but it's sealed as the backup of GitLab's encryption keys.)
