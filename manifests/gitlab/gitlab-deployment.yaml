@@ -213,7 +213,7 @@ spec:
                 case "$k" in *.pub) chmod 0644 "$k";; *) chmod 0600 "$k";; esac
               done
               ls -l /etc/gitlab
-          image: gitlab/gitlab-ee:19.1.9-ee.0
+          image: gitlab/gitlab-ee:19.1.10-ee.0
           imagePullPolicy: IfNotPresent
           name: host-keys
           resources:
