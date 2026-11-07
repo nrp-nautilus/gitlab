@@ -1,0 +1,98 @@
+# Templates for the runners that take jobs from other GitLab servers:
+# gitlab-runner-gitlab (gitlab.com) and gitlab-runner-sdsc (hpc-gitlab.sdsc.edu).
+# Their jobs used to run in the gitlab namespace next to GitLab. They now run
+# like gitlab-runner-kata-default's: one Kata VM per job in gitlab-ci-kata,
+# unprivileged, no service account token, internet-only egress. Their pods carry
+# their own part-of label, so the API-server egress that default jobs get
+# (networkpolicy-kube-api.yaml) doesn't apply to them.
+#
+# Sizes and caps are the same as gitlab-runner-kata-default's; see the comments
+# in gitlab-runner-kata-default-configmap.yaml.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gitlab-runner-kata-external-config
+  namespace: gitlab
+data:
+  gitlab-com.template.toml: |
+    [[runners]]
+      name = "gitlab-runner-gitlab"
+      limit = 2
+      output_limit = 32768
+      environment = ["container=kube"]
+      [runners.kubernetes]
+        namespace = "gitlab-ci-kata"
+        runtime_class_name = "kata"
+        privileged = false
+        service_account = "ci-job"
+        image = "alpine:3.22"
+        pull_policy = ["always"]
+        allowed_pull_policies = ["always"]
+        poll_timeout = 600
+        cpu_request = "1"
+        cpu_limit = "4"
+        cpu_request_overwrite_max_allowed = "2"
+        cpu_limit_overwrite_max_allowed = "12"
+        memory_request = "8Gi"
+        memory_limit = "8Gi"
+        memory_request_overwrite_max_allowed = "24Gi"
+        memory_limit_overwrite_max_allowed = "24Gi"
+        helper_cpu_request = "100m"
+        helper_cpu_limit = "1"
+        helper_memory_request = "256Mi"
+        helper_memory_limit = "1Gi"
+        service_cpu_request = "100m"
+        service_cpu_limit = "1"
+        service_cpu_limit_overwrite_max_allowed = "2"
+        service_memory_request = "1Gi"
+        service_memory_limit = "1Gi"
+        service_memory_request_overwrite_max_allowed = "4Gi"
+        service_memory_limit_overwrite_max_allowed = "4Gi"
+        [runners.kubernetes.node_selector]
+          "kubernetes.io/arch" = "amd64"
+        [runners.kubernetes.node_tolerations]
+          "nautilus.io/testing=kata" = "NoSchedule"
+        [runners.kubernetes.pod_labels]
+          "app.kubernetes.io/part-of" = "gitlab-runner-kata-external"
+          "nrp-nautilus.io/ci-server" = "gitlab.com"
+  sdsc.template.toml: |
+    [[runners]]
+      name = "gitlab-runner-sdsc"
+      limit = 2
+      output_limit = 32768
+      environment = ["container=kube"]
+      [runners.kubernetes]
+        namespace = "gitlab-ci-kata"
+        runtime_class_name = "kata"
+        privileged = false
+        service_account = "ci-job"
+        image = "alpine:3.22"
+        pull_policy = ["always"]
+        allowed_pull_policies = ["always"]
+        poll_timeout = 600
+        cpu_request = "1"
+        cpu_limit = "4"
+        cpu_request_overwrite_max_allowed = "2"
+        cpu_limit_overwrite_max_allowed = "12"
+        memory_request = "8Gi"
+        memory_limit = "8Gi"
+        memory_request_overwrite_max_allowed = "24Gi"
+        memory_limit_overwrite_max_allowed = "24Gi"
+        helper_cpu_request = "100m"
+        helper_cpu_limit = "1"
+        helper_memory_request = "256Mi"
+        helper_memory_limit = "1Gi"
+        service_cpu_request = "100m"
+        service_cpu_limit = "1"
+        service_cpu_limit_overwrite_max_allowed = "2"
+        service_memory_request = "1Gi"
+        service_memory_limit = "1Gi"
+        service_memory_request_overwrite_max_allowed = "4Gi"
+        service_memory_limit_overwrite_max_allowed = "4Gi"
+        [runners.kubernetes.node_selector]
+          "kubernetes.io/arch" = "amd64"
+        [runners.kubernetes.node_tolerations]
+          "nautilus.io/testing=kata" = "NoSchedule"
+        [runners.kubernetes.pod_labels]
+          "app.kubernetes.io/part-of" = "gitlab-runner-kata-external"
+          "nrp-nautilus.io/ci-server" = "hpc-gitlab.sdsc.edu"

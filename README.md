@@ -67,6 +67,13 @@ could run another project's private image from the node's cache without having t
 `manifests/ci-kata/networkpolicy-kube-api.yaml` lets this runner's jobs, and only these, reach the API server's public
 endpoints on 6443, for projects that deploy to Nautilus with `kubectl`/`helm` and a kubeconfig in a CI variable.
 
+## Runners for other GitLab servers (`gitlab-runner-gitlab`, `gitlab-runner-sdsc`)
+
+`gitlab-runner-gitlab` takes jobs from gitlab.com and `gitlab-runner-sdsc` from hpc-gitlab.sdsc.edu (tokens in
+`gitlab-runner-token`, keys `gitlab` and `sdsc`). Their jobs run like the default runner's, in Kata VMs in
+`gitlab-ci-kata` (`gitlab-runner-kata-external-config`), but without the API-server egress. Their cache lives under its
+own prefix (`external/<server>`) in the shared bucket, because project IDs from different GitLab servers collide.
+
 ## Secrets
 
 This repo is public, so Secrets are committed only as SealedSecrets (`*-sealedsecret.yaml`, next to

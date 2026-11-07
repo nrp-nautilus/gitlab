@@ -1,3 +1,8 @@
+# Runs CI jobs for a gitlab.com runner (authentication token in gitlab-runner-token, key gitlab; tags and scope are set on gitlab.com).
+# Its jobs run in Kata VMs in gitlab-ci-kata (see gitlab-runner-kata-external-
+# configmap.yaml), not in the gitlab namespace. The cache has its own S3 prefix,
+# so these jobs can't read or overwrite NRP projects' caches when project IDs
+# collide across GitLab servers.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -6,22 +11,23 @@ metadata:
   name: gitlab-runner-gitlab
   namespace: gitlab
 spec:
-  progressDeadlineSeconds: 600
   replicas: 1
-  revisionHistoryLimit: 1
+  revisionHistoryLimit: 2
   selector:
     matchLabels:
       app: gitlab-runner-gitlab
   strategy:
-    rollingUpdate:
-      maxSurge: 25%
-      maxUnavailable: 25%
-    type: RollingUpdate
+    type: Recreate
   template:
     metadata:
       labels:
         app: gitlab-runner-gitlab
+      annotations:
+        # The template is read only at pod start; bump this with every change
+        # to its key in gitlab-runner-kata-external-config.
+        nrp-nautilus.io/runner-config-revision: "1"
     spec:
+      serviceAccountName: gitlab-runner-kata-external
       affinity:
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -31,65 +37,36 @@ spec:
                     operator: In
                     values:
                       - system
-                  - key: topology.kubernetes.io/region
-                    operator: In
-                    values:
-                      - us-west
-      containers:
-        - args:
-            - run
+      tolerations:
+        - effect: NoSchedule
+          key: nautilus.io/ceph
+          operator: Exists
+        - effect: NoSchedule
+          key: nautilus.io/system
+          operator: Exists
+      initContainers:
+        - name: register
           image: gitlab/gitlab-runner:v19.1.5
           imagePullPolicy: IfNotPresent
-          name: runner
-          resources:
-            requests:
-              cpu: 100m
-              memory: 128Mi
-          terminationMessagePath: /dev/termination-log
-          terminationMessagePolicy: File
-          volumeMounts:
-            - mountPath: /etc/gitlab-runner
-              name: config
-      dnsPolicy: ClusterFirst
-      initContainers:
-        - args:
-            - register
+          command: ["/bin/sh", "-ec"]
+          args:
+            - |
+              gitlab-runner register --non-interactive --template-config /template/gitlab-com.template.toml
+              sed -i 's/^concurrent = .*/concurrent = 2/' /etc/gitlab-runner/config.toml
           env:
             - name: CI_SERVER_URL
               value: https://gitlab.com/
-            - name: REGISTER_NON_INTERACTIVE
-              value: "true"
             - name: CI_SERVER_TOKEN
               valueFrom:
                 secretKeyRef:
-                  key: gitlab
                   name: gitlab-runner-token
+                  key: gitlab
             - name: RUNNER_EXECUTOR
               value: kubernetes
-            - name: RUNNER_REQUEST_CONCURRENCY
-              value: "4"
-            - name: KUBERNETES_NAMESPACE
-              value: gitlab
-            - name: KUBERNETES_CPU_LIMIT
-              value: "16"
-            - name: KUBERNETES_MEMORY_LIMIT
-              value: 15Gi
-            - name: KUBERNETES_CPU_REQUEST
-              value: "1"
-            - name: KUBERNETES_MEMORY_REQUEST
-              value: 10Gi
-            - name: KUBERNETES_NODE_TOLERATIONS
-              value: nautilus.io/noceph=true:NoSchedule
-            - name: KUBERNETES_PULL_POLICY
-              value: always
-            - name: REGISTER_LOCKED
-              value: "true"
-            - name: KUBERNETES_NODE_SELECTOR
-              value: gitlab-worker:true
-            - name: OUTPUT_LIMIT
-              value: "32768"
             - name: CACHE_TYPE
               value: s3
+            - name: CACHE_PATH
+              value: external/gitlab.com
             - name: CACHE_SHARED
               value: "true"
             - name: CACHE_S3_SERVER_ADDRESS
@@ -108,28 +85,36 @@ spec:
               value: runners-cache
             - name: CACHE_S3_INSECURE
               value: "false"
-          image: gitlab/gitlab-runner:v19.1.5
-          imagePullPolicy: IfNotPresent
-          name: init-runner
           resources:
             requests:
               cpu: 50m
               memory: 64Mi
-          terminationMessagePath: /dev/termination-log
-          terminationMessagePolicy: File
+            limits:
+              memory: 256Mi
           volumeMounts:
             - mountPath: /etc/gitlab-runner
               name: config
-      restartPolicy: Always
-      schedulerName: default-scheduler
-      securityContext: {}
-      serviceAccount: runner
-      serviceAccountName: runner
-      terminationGracePeriodSeconds: 30
-      tolerations:
-        - effect: NoSchedule
-          key: nautilus.io/system
-          operator: Exists
+            - mountPath: /template
+              name: template
+              readOnly: true
+      containers:
+        - name: runner
+          image: gitlab/gitlab-runner:v19.1.5
+          imagePullPolicy: IfNotPresent
+          args:
+            - run
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              memory: 512Mi
+          volumeMounts:
+            - mountPath: /etc/gitlab-runner
+              name: config
       volumes:
-        - emptyDir: {}
-          name: config
+        - name: config
+          emptyDir: {}
+        - name: template
+          configMap:
+            name: gitlab-runner-kata-external-config
