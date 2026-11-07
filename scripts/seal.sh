@@ -14,7 +14,7 @@ DIR=${DIR:-manifests/gitlab}
 # Secrets are left to the controllers that create them.
 SECRETS=(
   ai-gateway-jwt authentik-oauth github-oauth gitlab gitlab-oauth
-  gitlab-reg-secrets gitlab-runner-token gitlab-ssh-host-keys google-oauth
+  gitlab-reg-secrets gitlab-runner-kata-token gitlab-runner-token gitlab-ssh-host-keys google-oauth
   registry-redis runner-cache runner1-userdata runner2-userdata
   runners-pub-keys ssl-key
   # Not mounted anywhere; kept as the backup of GitLab's encryption keys.
