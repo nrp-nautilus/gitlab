@@ -100,9 +100,6 @@ spec:
                 secretKeyRef:
                   key: redis-password
                   name: registry-redis
-            # Read-only window for the metadata database import (step two).
-            - name: REGISTRY_STORAGE_MAINTENANCE_READONLY_ENABLED
-              value: "true"
           image: registry.gitlab.com/gitlab-org/build/cng/gitlab-container-registry:v4.40.1-gitlab
           imagePullPolicy: Always
           name: registry
