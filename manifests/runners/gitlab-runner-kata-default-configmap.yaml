@@ -1,0 +1,70 @@
+# Template passed to `gitlab-runner register --template-config`.
+# The instance's default runner: it takes untagged jobs (and jobs tagged
+# `kata-default`). Like gitlab-runner-kata, each job is one pod in
+# gitlab-ci-kata on the kata runtime, so it gets its own VM, but nothing here is
+# privileged and there is no dind service. Docker builds belong on the `docker`
+# tag.
+#
+# Sizes come from the old gitlab-runner-general jobs (14 days to 2026-11-07,
+# 2,336 jobs): 99% peaked under 2.5 cores, 95% under 2.7 GiB RSS and 99% under
+# 16 GiB. Jobs that need more set KUBERNETES_CPU_LIMIT, KUBERNETES_MEMORY_LIMIT
+# and KUBERNETES_MEMORY_REQUEST, up to the *_overwrite_max_allowed caps. With
+# helper and one service at their caps a pod stays under 16 cores and 32 GB,
+# the nautilus-admission limit for bare pods, so jobs keep working if the
+# namespace loses its pod_runtime_exceptions entry.
+#
+# Under Kata the VM gets 1 vCPU and 2 GiB plus the containers' limits, so nproc
+# inside a job is about cpu_limit + 2, not the node's core count.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gitlab-runner-kata-default-config
+  namespace: gitlab
+data:
+  config.template.toml: |
+    [[runners]]
+      name = "gitlab-runner-kata-default"
+      limit = 10
+      output_limit = 32768
+      [runners.kubernetes]
+        namespace = "gitlab-ci-kata"
+        runtime_class_name = "kata"
+        privileged = false
+        service_account = "ci-job"
+        # Only used by jobs that don't set `image:`.
+        image = "alpine:3.22"
+        # Not if-not-present: a node's image cache is shared by every job on
+        # it, so a job could start another project's private image that is
+        # already on the node without having the credentials to pull it.
+        # Jobs can't pick a different policy. The kubelet's check is a
+        # manifest HEAD, which Docker Hub doesn't count against pull limits.
+        pull_policy = ["always"]
+        allowed_pull_policies = ["always"]
+        poll_timeout = 600
+        cpu_request = "1"
+        cpu_limit = "4"
+        cpu_request_overwrite_max_allowed = "2"
+        cpu_limit_overwrite_max_allowed = "12"
+        memory_request = "8Gi"
+        memory_limit = "8Gi"
+        memory_request_overwrite_max_allowed = "24Gi"
+        memory_limit_overwrite_max_allowed = "24Gi"
+        helper_cpu_request = "100m"
+        helper_cpu_limit = "1"
+        helper_memory_request = "256Mi"
+        helper_memory_limit = "1Gi"
+        # No job on the old default runners used `services:` in the 14 days
+        # measured; these cover a small database or cache for tests.
+        service_cpu_request = "100m"
+        service_cpu_limit = "1"
+        service_cpu_limit_overwrite_max_allowed = "2"
+        service_memory_request = "1Gi"
+        service_memory_limit = "1Gi"
+        service_memory_request_overwrite_max_allowed = "4Gi"
+        service_memory_limit_overwrite_max_allowed = "4Gi"
+        [runners.kubernetes.node_selector]
+          "kubernetes.io/arch" = "amd64"
+        [runners.kubernetes.node_tolerations]
+          "nautilus.io/testing=kata" = "NoSchedule"
+        [runners.kubernetes.pod_labels]
+          "app.kubernetes.io/part-of" = "gitlab-runner-kata-default"

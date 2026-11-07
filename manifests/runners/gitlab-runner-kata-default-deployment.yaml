@@ -1,0 +1,119 @@
+# Replaces gitlab-runner-general as the instance's default (untagged) runner.
+# gitlab-runner-general ran jobs in the gitlab namespace itself, next to GitLab,
+# with no NetworkPolicy. These jobs run in Kata VMs in gitlab-ci-kata; see
+# manifests/ci-kata.
+#
+# The runner's authentication token (instance type, tag `kata-default`) is in
+# gitlab-runner-kata-default-token-sealedsecret.yaml. Tags and run-untagged are
+# set on the runner record in GitLab, not here.
+# One replica: concurrency comes from `concurrent`/`limit`, and each restart
+# registers a new manager under the same runner instead of a new runner record.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: gitlab-runner-kata-default
+  name: gitlab-runner-kata-default
+  namespace: gitlab
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  selector:
+    matchLabels:
+      app: gitlab-runner-kata-default
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: gitlab-runner-kata-default
+    spec:
+      serviceAccountName: gitlab-runner-kata-default
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: env
+                    operator: In
+                    values:
+                      - system
+      tolerations:
+        - effect: NoSchedule
+          key: nautilus.io/ceph
+          operator: Exists
+        - effect: NoSchedule
+          key: nautilus.io/system
+          operator: Exists
+      initContainers:
+        - name: register
+          image: gitlab/gitlab-runner:v19.1.5
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/sh", "-ec"]
+          args:
+            - |
+              gitlab-runner register --non-interactive --template-config /template/config.template.toml
+              sed -i 's/^concurrent = .*/concurrent = 10/' /etc/gitlab-runner/config.toml
+          env:
+            - name: CI_SERVER_URL
+              value: https://gitlab.nrp-nautilus.io/
+            - name: CI_SERVER_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: gitlab-runner-kata-default-token
+                  key: token
+            - name: RUNNER_EXECUTOR
+              value: kubernetes
+            - name: CACHE_TYPE
+              value: s3
+            - name: CACHE_SHARED
+              value: "true"
+            - name: CACHE_S3_SERVER_ADDRESS
+              value: s3-west.nrp-nautilus.io
+            - name: CACHE_S3_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  key: accesskey
+                  name: runner-cache
+            - name: CACHE_S3_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  key: secretkey
+                  name: runner-cache
+            - name: CACHE_S3_BUCKET_NAME
+              value: runners-cache
+            - name: CACHE_S3_INSECURE
+              value: "false"
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              memory: 256Mi
+          volumeMounts:
+            - mountPath: /etc/gitlab-runner
+              name: config
+            - mountPath: /template
+              name: template
+              readOnly: true
+      containers:
+        - name: runner
+          image: gitlab/gitlab-runner:v19.1.5
+          imagePullPolicy: IfNotPresent
+          args:
+            - run
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              memory: 512Mi
+          volumeMounts:
+            - mountPath: /etc/gitlab-runner
+              name: config
+      volumes:
+        - name: config
+          emptyDir: {}
+        - name: template
+          configMap:
+            name: gitlab-runner-kata-default-config

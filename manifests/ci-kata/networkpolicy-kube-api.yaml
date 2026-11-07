@@ -1,0 +1,33 @@
+# Lets default-runner jobs reach the Kubernetes API server's public endpoints,
+# which ci-jobs-internet-only blocks. NetworkPolicies add up, so this only
+# opens TCP 6443 on those addresses, and only for gitlab-runner-kata-default's
+# pods; Docker-build jobs (gitlab-runner-kata) stay blocked.
+#
+# Why: 31 of the 110 projects that used the old default runners in the 14 days
+# to 2026-11-07 ran helm/kubectl images (202 jobs), typically deploying to
+# Nautilus with a kubeconfig from a CI variable. The API server is reachable
+# from the internet anyway, and job pods carry no service account token, so
+# this gives a job nothing it couldn't do through any outside host.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: ci-default-jobs-kube-api
+  namespace: gitlab-ci-kata
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/part-of: gitlab-runner-kata-default
+  policyTypes: ["Egress"]
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 67.58.53.147/32
+        - ipBlock:
+            cidr: 67.58.53.148/32
+        - ipBlock:
+            cidr: 67.58.53.150/32
+        - ipBlock:
+            cidr: 67.58.53.151/32
+      ports:
+        - protocol: TCP
+          port: 6443

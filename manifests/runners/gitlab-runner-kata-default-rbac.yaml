@@ -1,0 +1,23 @@
+# gitlab-runner-kata-default's own identity, so the API server's audit log
+# tells its job pods apart from gitlab-runner-kata's. It gets the same Role in
+# gitlab-ci-kata (defined in gitlab-runner-kata-rbac.yaml) and nothing in the
+# gitlab namespace.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: gitlab-runner-kata-default
+  namespace: gitlab
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: gitlab-runner-kata-default
+  namespace: gitlab-ci-kata
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: gitlab-runner-kata
+subjects:
+  - kind: ServiceAccount
+    name: gitlab-runner-kata-default
+    namespace: gitlab
