@@ -2,9 +2,10 @@
 # 2012), whose jobs got the host's docker.sock. Jobs run in Kata VMs in
 # gitlab-ci-kata; see manifests/ci-kata.
 #
-# replicas stays 0 until the runner's authentication token is sealed in
-# gitlab-runner-kata-token-sealedsecret.yaml (key `token`, a glrt- token from a
-# runner created in GitLab with tag `docker`).
+# The runner's authentication token (GitLab runner 2500, instance type, tag
+# `docker`, untagged jobs off) is in gitlab-runner-kata-token-sealedsecret.yaml.
+# One replica: concurrency comes from `concurrent`/`limit`, and each restart
+# registers a new manager under the same runner instead of a new runner record.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -13,7 +14,7 @@ metadata:
   name: gitlab-runner-kata
   namespace: gitlab
 spec:
-  replicas: 0
+  replicas: 1
   revisionHistoryLimit: 2
   selector:
     matchLabels:
@@ -50,7 +51,7 @@ spec:
           args:
             - |
               gitlab-runner register --non-interactive --template-config /template/config.template.toml
-              sed -i 's/^concurrent = .*/concurrent = 4/' /etc/gitlab-runner/config.toml
+              sed -i 's/^concurrent = .*/concurrent = 3/' /etc/gitlab-runner/config.toml
           env:
             - name: CI_SERVER_URL
               value: https://gitlab.nrp-nautilus.io/

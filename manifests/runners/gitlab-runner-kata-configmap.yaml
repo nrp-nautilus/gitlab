@@ -12,7 +12,7 @@ data:
   config.template.toml: |
     [[runners]]
       name = "gitlab-runner-kata"
-      limit = 4
+      limit = 3
       output_limit = 32768
       environment = [
         "DOCKER_HOST=tcp://docker:2375",
@@ -32,8 +32,11 @@ data:
         memory_limit = "4Gi"
         service_cpu_request = "2"
         service_cpu_limit = "8"
-        service_memory_request = "24Gi"
-        service_memory_limit = "24Gi"
+        # dind keeps images in guest RAM (see the docker-data volume below), and
+        # Kata gives that tmpfs about half the VM's memory, so 48Gi buys ~24G of
+        # image storage. Large CUDA image builds need that much.
+        service_memory_request = "48Gi"
+        service_memory_limit = "48Gi"
         helper_cpu_request = "100m"
         helper_cpu_limit = "1"
         helper_memory_request = "256Mi"
@@ -44,6 +47,16 @@ data:
           "nautilus.io/testing=kata" = "NoSchedule"
         [runners.kubernetes.pod_labels]
           "app.kubernetes.io/part-of" = "gitlab-runner-kata"
+        # Under Kata the container filesystem is virtio-fs from the node. dockerd
+        # can't run overlay2 there, so it falls back to vfs, and image layers that
+        # carry overlay xattrs fail to unpack ("lsetxattr ... operation not
+        # supported"). A memory-backed emptyDir is tmpfs inside the guest, where
+        # overlay2 works. Kata ignores size_limit and sizes the tmpfs at about half
+        # the VM's memory.
+        [[runners.kubernetes.volumes.empty_dir]]
+          name = "docker-data"
+          mount_path = "/var/lib/docker"
+          medium = "Memory"
         [[runners.kubernetes.services]]
           name = "docker:28-dind"
           alias = "docker"
