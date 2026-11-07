@@ -1,3 +1,5 @@
+# Retired 2026-11-07: no jobs since 2026-10-25. Its jobs ran in the gitlab
+# namespace itself.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -7,7 +9,7 @@ metadata:
   namespace: gitlab
 spec:
   progressDeadlineSeconds: 600
-  replicas: 3
+  replicas: 0
   revisionHistoryLimit: 10
   selector:
     matchLabels:
