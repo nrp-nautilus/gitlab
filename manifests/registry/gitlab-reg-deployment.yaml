@@ -98,6 +98,34 @@ spec:
                 secretKeyRef:
                   key: redis-password
                   name: registry-redis
+            # Metadata database. Once on it must stay on: turning it off makes the
+            # registry lose sight of everything written while it was active.
+            - name: REGISTRY_DATABASE_ENABLED
+              value: "true"
+            - name: REGISTRY_DATABASE_HOST
+              value: gitlab-db.gitlab.svc
+            - name: REGISTRY_DATABASE_PORT
+              value: "5432"
+            - name: REGISTRY_DATABASE_USER
+              valueFrom:
+                secretKeyRef:
+                  key: username
+                  name: registry.gitlab-db.credentials.postgresql.acid.zalan.do
+            - name: REGISTRY_DATABASE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: password
+                  name: registry.gitlab-db.credentials.postgresql.acid.zalan.do
+            - name: REGISTRY_DATABASE_DBNAME
+              value: registry
+            - name: REGISTRY_DATABASE_SSLMODE
+              value: require
+            # The pool defaults to unlimited; gitlab-db also serves GitLab itself
+            # (max_connections 273), so cap each replica.
+            - name: REGISTRY_DATABASE_POOL_MAXOPEN
+              value: "15"
+            - name: REGISTRY_DATABASE_POOL_MAXIDLE
+              value: "5"
           image: registry.gitlab.com/gitlab-org/build/cng/gitlab-container-registry:v4.40.1-gitlab
           imagePullPolicy: Always
           name: registry

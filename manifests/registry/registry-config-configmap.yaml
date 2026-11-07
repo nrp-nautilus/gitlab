@@ -9,14 +9,10 @@ data:
       cache:
         blobdescriptor: inmemory
       # The driver is declared here, not through REGISTRY_STORAGE: that variable
-      # replaces the whole storage map, maintenance included. The REGISTRY_STORAGE_S3_*
+      # replaces the whole storage map, so anything else set here (the settings
+      # under maintenance, for one) would be lost. The REGISTRY_STORAGE_S3_*
       # variables fill in the s3 parameters.
       s3: {}
-      # Read-only window for the metadata database import (step two). The settings
-      # under maintenance can only come from this file, not from the environment.
-      maintenance:
-        readonly:
-          enabled: true
     http:
       addr: :5000
       headers:
