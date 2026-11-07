@@ -26,6 +26,12 @@ data:
       name = "gitlab-runner-kata-default"
       limit = 10
       output_limit = 32768
+      # Tools that check whether they run in a container look for an overlay
+      # root filesystem; under Kata the root is virtio-fs, so they find none.
+      # Kaniko then refuses to build ("kaniko should only be run inside of a
+      # container"). `container` is systemd's marker variable, and Kaniko accepts
+      # it. Jobs can override it.
+      environment = ["container=kube"]
       [runners.kubernetes]
         namespace = "gitlab-ci-kata"
         runtime_class_name = "kata"
