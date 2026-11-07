@@ -1,4 +1,4 @@
-# Runs CI jobs for hpc-gitlab.sdsc.edu (legacy registration token in gitlab-runner-token, key sdsc; each restart registers a new runner there, as before).
+# Runs CI jobs for hpc-gitlab.sdsc.edu (authentication token in gitlab-runner-token, key sdsc; tags and scope are set on hpc-gitlab.sdsc.edu).
 # Its jobs run in Kata VMs in gitlab-ci-kata (see gitlab-runner-kata-external-
 # configmap.yaml), not in the gitlab namespace. The cache has its own S3 prefix,
 # so these jobs can't read or overwrite NRP projects' caches when project IDs
@@ -56,13 +56,11 @@ spec:
           env:
             - name: CI_SERVER_URL
               value: https://hpc-gitlab.sdsc.edu/
-            - name: REGISTRATION_TOKEN
+            - name: CI_SERVER_TOKEN
               valueFrom:
                 secretKeyRef:
                   name: gitlab-runner-token
                   key: sdsc
-            - name: REGISTER_LOCKED
-              value: "false"
             - name: RUNNER_EXECUTOR
               value: kubernetes
             - name: CACHE_TYPE

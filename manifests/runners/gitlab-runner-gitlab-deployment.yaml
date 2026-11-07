@@ -18,6 +18,9 @@ spec:
       app: gitlab-runner-gitlab
   strategy:
     type: Recreate
+    # Clears the RollingUpdate settings the live object still carries from
+    # before; without it the sync fails (rollingUpdate is forbidden with Recreate).
+    rollingUpdate: null
   template:
     metadata:
       labels:
