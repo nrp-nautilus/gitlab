@@ -12,7 +12,7 @@ ArgoCD (`argocd/application.yaml`, in the `argo` namespace) syncs everything und
 | `manifests/ai-gateway` | Duo AI gateway |
 | `manifests/database` | Zalando `postgresql` cluster `gitlab-db` |
 | `manifests/vms` | KubeVirt runner VMs |
-| `manifests/ci-kata` | Namespace `gitlab-ci-kata` for `gitlab-runner-kata` job pods: admission policy, NetworkPolicy, quota |
+| `manifests/ci-kata` | Objects in namespace `gitlab-ci-kata` (job pods of `gitlab-runner-kata`): admission policy, NetworkPolicy, quota. The namespace itself is created through the nrp.ai portal, not here: the `nautilus-admission` webhook rejects pods in namespaces without a portal registration |
 
 ## Kata runner (`gitlab-runner-kata`, tag `docker`)
 
