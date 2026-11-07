@@ -12,6 +12,26 @@ ArgoCD (`argocd/application.yaml`, in the `argo` namespace) syncs everything und
 | `manifests/ai-gateway` | Duo AI gateway |
 | `manifests/database` | Zalando `postgresql` cluster `gitlab-db` |
 | `manifests/vms` | KubeVirt runner VMs |
+| `manifests/ci-kata` | Namespace `gitlab-ci-kata` for `gitlab-runner-kata` job pods: admission policy, NetworkPolicy, quota |
+
+## Kata runner (`gitlab-runner-kata`, tag `docker`)
+
+Every job runs as a pod in `gitlab-ci-kata` on the `kata` RuntimeClass, so it gets its own VM, which is thrown away
+after the job. The runner adds a privileged `docker:dind` service to each job and sets `DOCKER_HOST=tcp://docker:2375`, so
+`docker build` jobs written for the old docker.sock runners work unchanged. Privileged here means root inside the job's VM:
+kata-deploy configures containerd with `privileged_without_host_devices = true`, so no node devices are passed in.
+
+The guard rails, all of which must stay in place:
+
+- `manifests/ci-kata/admission-policy.yaml` rejects any pod in `gitlab-ci-kata` that isn't on the `kata` runtime, uses
+  hostPath, host namespaces or hostPort, uses a service account other than `ci-job`, or mounts a token.
+- `gitlab-ci-kata` is in the `excludedNamespaces` of Gatekeeper's `psp-privileged-container` constraint. This is a live
+  change, because Gatekeeper constraints aren't kept in this repo. If the constraint is re-applied from its source,
+  the exemption disappears and jobs fail to start; that fails safe.
+- `manifests/ci-kata/networkpolicy.yaml` allows DNS and the public internet only: no pod, service or private ranges,
+  no link-local addresses, and not the API server.
+- Kata runs only on the nodes labelled `katacontainers.io/kata-runtime=true` (UNL), several of which carry the
+  `nautilus.io/testing=kata` taint that the job pods tolerate.
 | `manifests/storage` | Standalone PVCs (including the 6Ti GitLab data volume) |
 
 ## Secrets

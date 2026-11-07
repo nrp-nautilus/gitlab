@@ -1,0 +1,11 @@
+# Job pods of gitlab-runner-kata. Every job runs in its own Kata VM, so a
+# privileged job (Docker-in-Docker) is root only inside that throwaway VM.
+# admission-policy.yaml rejects any pod here that isn't on the kata runtime.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: gitlab-ci-kata
+  labels:
+    nautilus.io/system-namespace: "true"
+  annotations:
+    nrp-security/reason: "Kata CI runner replacing the docker.sock VM runners (runner1, runner2)"

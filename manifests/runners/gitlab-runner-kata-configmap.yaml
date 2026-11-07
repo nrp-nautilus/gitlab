@@ -1,0 +1,49 @@
+# Template passed to `gitlab-runner register --template-config`.
+# Each job is one pod in gitlab-ci-kata on the kata runtime, so it gets its own
+# VM. The runner adds a docker:dind service to every job and points DOCKER_HOST
+# at it, so `docker build` jobs written for the old docker.sock runners keep
+# working unchanged. The service runs privileged, but only inside the job's VM.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gitlab-runner-kata-config
+  namespace: gitlab
+data:
+  config.template.toml: |
+    [[runners]]
+      name = "gitlab-runner-kata"
+      limit = 4
+      output_limit = 32768
+      environment = [
+        "DOCKER_HOST=tcp://docker:2375",
+        "DOCKER_TLS_CERTDIR=",
+      ]
+      [runners.kubernetes]
+        namespace = "gitlab-ci-kata"
+        runtime_class_name = "kata"
+        privileged = true
+        service_account = "ci-job"
+        image = "docker:28-cli"
+        pull_policy = ["if-not-present"]
+        poll_timeout = 600
+        cpu_request = "1"
+        cpu_limit = "4"
+        memory_request = "4Gi"
+        memory_limit = "4Gi"
+        service_cpu_request = "2"
+        service_cpu_limit = "8"
+        service_memory_request = "24Gi"
+        service_memory_limit = "24Gi"
+        helper_cpu_request = "100m"
+        helper_cpu_limit = "1"
+        helper_memory_request = "256Mi"
+        helper_memory_limit = "1Gi"
+        [runners.kubernetes.node_selector]
+          "kubernetes.io/arch" = "amd64"
+        [runners.kubernetes.node_tolerations]
+          "nautilus.io/testing=kata" = "NoSchedule"
+        [runners.kubernetes.pod_labels]
+          "app.kubernetes.io/part-of" = "gitlab-runner-kata"
+        [[runners.kubernetes.services]]
+          name = "docker:28-dind"
+          alias = "docker"
