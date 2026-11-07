@@ -50,7 +50,7 @@ spec:
           args:
             - |
               gitlab-runner register --non-interactive --template-config /template/config.template.toml
-              sed -i 's/^concurrent = .*/concurrent = 4/' /etc/gitlab-runner/config.toml
+              sed -i 's/^concurrent = .*/concurrent = 3/' /etc/gitlab-runner/config.toml
           env:
             - name: CI_SERVER_URL
               value: https://gitlab.nrp-nautilus.io/
