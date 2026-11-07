@@ -1,5 +1,18 @@
-# Caps gitlab-runner-kata at 3 concurrent jobs (about 53Gi each). Kata runs on only three
-# amd64 nodes (28 cores each), which are shared with other Kata tests.
+# Backstop for both Kata runners; their concurrency settings are the real
+# limit. Kata runs on three amd64 nodes (28 cores each), shared with other Kata
+# tests, and hcc-chase-shor-c4719 is nearly full of KubeVirt VMs, so in practice
+# c4705 and c6034 (~50 cores and ~470 GiB not yet requested) carry CI.
+#
+# Per job, counting the kata RuntimeClass overhead (250m, 320Mi):
+#   gitlab-runner-kata (tag docker, 3 at once): requests 3.35 CPU / 52.6Gi,
+#     limits 13.25 CPU / 53.3Gi, mostly the 48Gi dind service.
+#   gitlab-runner-kata-default (untagged, 10 at once): requests 1.35 CPU /
+#     8.6Gi and limits 5.25 CPU / 9.3Gi by default, at most 2.35 CPU / 24.6Gi
+#     requested and 13.25 CPU / 25.3Gi limits for a job that raises them.
+# Both runners full at their defaults use about 250Gi of limits.memory, which
+# leaves room for several default-runner jobs at their caps. If every default
+# job asked for its maximum at once, pod creation would hit this quota and those
+# jobs would fail rather than overload the nodes.
 apiVersion: v1
 kind: ResourceQuota
 metadata:
@@ -7,8 +20,8 @@ metadata:
   namespace: gitlab-ci-kata
 spec:
   hard:
-    pods: "6"
-    requests.cpu: "24"
-    requests.memory: 160Gi
-    limits.cpu: "64"
-    limits.memory: 160Gi
+    pods: "20"
+    requests.cpu: "48"
+    requests.memory: 400Gi
+    limits.cpu: "192"
+    limits.memory: 400Gi

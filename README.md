@@ -12,7 +12,8 @@ ArgoCD (`argocd/application.yaml`, in the `argo` namespace) syncs everything und
 | `manifests/ai-gateway` | Duo AI gateway |
 | `manifests/database` | Zalando `postgresql` cluster `gitlab-db` |
 | `manifests/vms` | KubeVirt VM `arm-runner` (stopped). The docker.sock runner VMs `runner1`/`runner2` were replaced by `gitlab-runner-kata` |
-| `manifests/ci-kata` | Objects in namespace `gitlab-ci-kata` (job pods of `gitlab-runner-kata`): admission policy, NetworkPolicy, quota. The namespace itself is created through the nrp.ai portal, not here: the `nautilus-admission` webhook rejects pods in namespaces without a portal registration |
+| `manifests/ci-kata` | Objects in namespace `gitlab-ci-kata` (job pods of `gitlab-runner-kata` and `gitlab-runner-kata-default`): admission policy, NetworkPolicies, quota. The namespace itself is created through the nrp.ai portal, not here: the `nautilus-admission` webhook rejects pods in namespaces without a portal registration |
+| `manifests/storage` | Standalone PVCs (including the 6Ti GitLab data volume) |
 
 ## Kata runner (`gitlab-runner-kata`, tag `docker`)
 
@@ -32,7 +33,39 @@ The guard rails, all of which must stay in place:
   no link-local addresses, and not the API server.
 - Kata runs only on the nodes labelled `katacontainers.io/kata-runtime=true` (UNL), several of which carry the
   `nautilus.io/testing=kata` taint that the job pods tolerate.
-| `manifests/storage` | Standalone PVCs (including the 6Ti GitLab data volume) |
+
+`gitlab-ci-kata` is also listed in `portal.pod_runtime_exceptions` of ConfigMap `kube-system/nautilus-config` (a live
+change too), so `nautilus-admission` doesn't cap its bare pods at 16 cores / 32 GB of limits or 6 hours. Docker-build
+jobs need that (dind alone is 48Gi). If the entry is lost, they fail to start.
+
+## Default runner (`gitlab-runner-kata-default`, untagged)
+
+The instance's default runner: it runs untagged jobs, and jobs tagged `kata-default`, in the same namespace, on the
+same Kata VMs and under the same guard rails as `gitlab-runner-kata`, but nothing is privileged and there is no dind
+service. It replaced `gitlab-runner-general`, whose jobs ran in the `gitlab` namespace next to GitLab. Tags and
+run-untagged are set on the runner record in GitLab (Admin > CI/CD > Runners), not in this repo.
+
+Each job gets 1 CPU requested / 4 CPU limit and 8Gi of memory. A job can raise that with CI/CD variables, up to the
+caps in `gitlab-runner-kata-default-configmap.yaml`:
+
+| Variable | Default | Max |
+|---|---|---|
+| `KUBERNETES_CPU_LIMIT` | 4 | 12 |
+| `KUBERNETES_CPU_REQUEST` | 1 | 2 |
+| `KUBERNETES_MEMORY_LIMIT` | 8Gi | 24Gi |
+| `KUBERNETES_MEMORY_REQUEST` | 8Gi | 24Gi |
+| `KUBERNETES_SERVICE_CPU_LIMIT` | 1 | 2 |
+| `KUBERNETES_SERVICE_MEMORY_LIMIT` / `_REQUEST` | 1Gi | 4Gi |
+
+Set the memory request along with the limit: Kata sizes the VM from the limit, but the scheduler only counts the
+request. At the caps a pod stays under the `nautilus-admission` limit for bare pods, so default jobs don't depend on
+the exemption above.
+
+Images are always pulled (`pull_policy = always`, and jobs can't choose another policy). With `if-not-present`, a job
+could run another project's private image from the node's cache without having the credentials to pull it.
+
+`manifests/ci-kata/networkpolicy-kube-api.yaml` lets this runner's jobs, and only these, reach the API server's public
+endpoints on 6443, for projects that deploy to Nautilus with `kubectl`/`helm` and a kubeconfig in a CI variable.
 
 ## Secrets
 
