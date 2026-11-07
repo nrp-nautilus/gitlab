@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Re-export the gitlab namespace from the cluster into manifests/, stripping
-# server-set fields. Secrets, operator-owned objects and runner1-setup (it holds
-# a runner token) are left out on purpose; see README.md.
+# server-set fields. Secrets and operator-owned objects are left out on purpose;
+# see README.md.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 CLEAN=scripts/clean.yq
@@ -22,7 +22,7 @@ registry deployment/gitlab-reg service/gitlab-registry service/registry-import-s
 runners deployment/gitlab-runner-arm64 deployment/gitlab-runner-arnoc deployment/gitlab-runner-dind deployment/gitlab-runner-docker deployment/gitlab-runner-duo deployment/gitlab-runner-general deployment/gitlab-runner-gitlab deployment/gitlab-runner-sdsc deployment/gitlab-runner-ue4 serviceaccount/runner
 ai-gateway deployment/ai-gateway service/ai-gateway
 database postgresql/gitlab-db
-vms virtualmachine/arm-runner virtualmachine/runner1 virtualmachine/runner1-golden virtualmachine/runner2
+vms virtualmachine/arm-runner
 storage persistentvolumeclaim/arm-runner-hd persistentvolumeclaim/gitlab persistentvolumeclaim/gitlab-state persistentvolumeclaim/makisu-redis persistentvolumeclaim/runner-hd
 LIST
 for f in "$R"/storage/*.yaml "$R"/vms/*.yaml "$R"/database/*.yaml; do

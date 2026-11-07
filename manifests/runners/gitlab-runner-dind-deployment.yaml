@@ -1,3 +1,6 @@
+# Scaled to 0. This runner ran a privileged docker:dind sidecar directly on the
+# node, so a job could get root on the node. Docker builds (tag docker) now go to
+# gitlab-runner-kata, which runs each job in its own Kata VM.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -7,7 +10,7 @@ metadata:
   namespace: gitlab
 spec:
   progressDeadlineSeconds: 600
-  replicas: 1
+  replicas: 0
   revisionHistoryLimit: 2
   selector:
     matchLabels:
