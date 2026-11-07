@@ -1,0 +1,47 @@
+# CI jobs get DNS and the public internet only. That includes GitLab, its
+# registry and the S3 cache, which are all reached on public HAProxy addresses.
+# Blocked: the pod and service networks, other private ranges, link-local
+# (including cloud metadata) and the Kubernetes API server's public endpoints.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: ci-jobs-internet-only
+  namespace: gitlab-ci-kata
+spec:
+  podSelector: {}
+  policyTypes: ["Ingress", "Egress"]
+  ingress: []
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8
+              - 100.64.0.0/10
+              - 127.0.0.0/8
+              - 169.254.0.0/16
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+              # Kubernetes API server (kubernetes.default endpoints and the kubeconfig address)
+              - 67.58.53.147/32
+              - 67.58.53.148/32
+              - 67.58.53.150/32
+              - 67.58.53.151/32
+        - ipBlock:
+            cidr: ::/0
+            except:
+              - ::1/128
+              - fc00::/7
+              - fe80::/10

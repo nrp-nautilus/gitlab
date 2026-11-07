@@ -1,0 +1,56 @@
+# CI jobs in gitlab-ci-kata run privileged (Docker-in-Docker). That is only safe
+# inside a Kata VM: kata-deploy sets privileged_without_host_devices = true, so a
+# privileged container sees the guest's devices, not the node's. On runc the same
+# pod would be root on the node, so this policy makes the kata runtime mandatory
+# for every pod in the namespace, whoever creates it.
+#
+# The namespace is exempted from Gatekeeper's psp-privileged-container constraint
+# (a live change; Gatekeeper constraints are not in this repo). Keep this policy
+# in place for as long as that exemption exists.
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: gitlab-ci-kata-require-kata
+  annotations:
+    nrp-security/reason: "Privileged CI pods are allowed in gitlab-ci-kata only inside Kata VMs"
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        operations: ["CREATE", "UPDATE"]
+        resources: ["pods", "pods/ephemeralcontainers"]
+  variables:
+    - name: containers
+      expression: >-
+        object.spec.containers
+        + (has(object.spec.initContainers) ? object.spec.initContainers : [])
+  validations:
+    - expression: "has(object.spec.runtimeClassName) && object.spec.runtimeClassName == 'kata'"
+      message: "Pods in gitlab-ci-kata must set runtimeClassName: kata (NRP security)."
+    - expression: "!has(object.spec.volumes) || object.spec.volumes.all(v, !has(v.hostPath))"
+      message: "hostPath volumes are not allowed in gitlab-ci-kata (NRP security)."
+    - expression: >-
+        !(has(object.spec.hostPID) && object.spec.hostPID)
+        && !(has(object.spec.hostIPC) && object.spec.hostIPC)
+        && !(has(object.spec.hostNetwork) && object.spec.hostNetwork)
+      message: "Host PID, IPC and network namespaces are not allowed in gitlab-ci-kata (NRP security)."
+    - expression: "variables.containers.all(c, !has(c.ports) || c.ports.all(p, !has(p.hostPort) || p.hostPort == 0))"
+      message: "hostPort is not allowed in gitlab-ci-kata (NRP security)."
+    - expression: "object.spec.serviceAccountName == 'ci-job'"
+      message: "Pods in gitlab-ci-kata must use the ci-job service account (NRP security)."
+    - expression: "!has(object.spec.automountServiceAccountToken) || object.spec.automountServiceAccountToken == false"
+      message: "CI job pods must not mount a service account token (NRP security)."
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: gitlab-ci-kata-require-kata
+spec:
+  policyName: gitlab-ci-kata-require-kata
+  validationActions: ["Deny"]
+  matchResources:
+    namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: gitlab-ci-kata
