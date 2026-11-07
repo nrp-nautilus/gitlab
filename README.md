@@ -11,7 +11,7 @@ ArgoCD (`argocd/application.yaml`, in the `argo` namespace) syncs everything und
 | `manifests/runners` | GitLab runner Deployments |
 | `manifests/ai-gateway` | Duo AI gateway |
 | `manifests/database` | Zalando `postgresql` cluster `gitlab-db` |
-| `manifests/vms` | KubeVirt runner VMs |
+| `manifests/vms` | KubeVirt VM `arm-runner` (stopped). The docker.sock runner VMs `runner1`/`runner2` were replaced by `gitlab-runner-kata` |
 | `manifests/ci-kata` | Objects in namespace `gitlab-ci-kata` (job pods of `gitlab-runner-kata`): admission policy, NetworkPolicy, quota. The namespace itself is created through the nrp.ai portal, not here: the `nautilus-admission` webhook rejects pods in namespaces without a portal registration |
 
 ## Kata runner (`gitlab-runner-kata`, tag `docker`)
@@ -53,8 +53,6 @@ SealedSecrets have `Prune=false,Delete=false`, because deleting a SealedSecret g
 
 ## Not in git
 
-- **The `runner1-setup` ConfigMap**, which has a runner token inline. Its script is kept, with
-  the token taken from `RUNNER_TOKEN`, as `scripts/runner1-setup.sh`; the ConfigMap can be deleted.
 - **Unreferenced Secrets**: `k3s`, `runner3-userdata`, `runner4-userdata`, `runner5-userdata`,
   `runner5-userdata-secret` and `runners-pub-keys-fixed`. (`gitlab-secrets-json` isn't
   referenced either, but it's sealed as the backup of GitLab's encryption keys.)
