@@ -6,9 +6,9 @@ ArgoCD (`argocd/application.yaml`, in the `argo` namespace) syncs everything und
 
 | Directory | Contents |
 |---|---|
-| `manifests/gitlab` | GitLab omnibus Deployment, its `gitlab.rb` ConfigMap, Services, Ingress, Certificate, RBAC |
+| `manifests/gitlab` | GitLab omnibus Deployment, its `gitlab.rb` ConfigMap, Services, Ingress, Certificate |
 | `manifests/registry` | Container registry (`gitlab-reg`), its Redis, Ingresses, ServiceMonitor |
-| `manifests/runners` | GitLab runner Deployments |
+| `manifests/runners` | GitLab runner Deployments: `gitlab-runner-kata` (tag `docker`), `gitlab-runner-kata-default` (untagged), and `gitlab-runner-gitlab`/`gitlab-runner-sdsc` for other GitLab servers. All run their jobs in Kata VMs in `gitlab-ci-kata` |
 | `manifests/ai-gateway` | Duo AI gateway |
 | `manifests/database` | Zalando `postgresql` cluster `gitlab-db` |
 | `manifests/vms` | KubeVirt VM `arm-runner` (stopped). The docker.sock runner VMs `runner1`/`runner2` were replaced by `gitlab-runner-kata` |
@@ -111,4 +111,5 @@ Self-heal is on, so any `kubectl edit`, `kubectl scale` or `kubectl set image` g
 Make the change here instead. Two exceptions: VM `running`/`runStrategy` (so `virtctl start/stop`
 still works) and the webhook's `nrp.ai/username` annotation.
 
-To take a fresh snapshot of the cluster, run `scripts/export.sh` (needs `kubectl` and `yq`).
+To re-export GitLab, the registry, the AI gateway, the database CR, the VM and the PVCs from the cluster, run
+`scripts/export.sh` (needs `kubectl` and `yq`). The runners and `manifests/ci-kata` are hand-written; it leaves them alone.

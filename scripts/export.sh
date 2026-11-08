@@ -7,8 +7,10 @@ cd "$(dirname "$0")/.."
 CLEAN=scripts/clean.yq
 R=manifests
 CONTEXT=${CONTEXT:-nautilus-readonly}
-# Clear the files this script generates; SealedSecrets come from scripts/seal.sh.
-find "$R" -name "*.yaml" ! -name "*-sealedsecret.yaml" -delete 2>/dev/null || true
+# Only the objects listed below are rewritten. Everything else is hand-written
+# and left alone: the runners (manifests/runners), manifests/ci-kata, and the
+# SealedSecrets, which come from scripts/seal.sh. If an object is removed from
+# the list, delete its file by hand.
 while read -r dir objs; do
   mkdir -p "$R/$dir"
   for o in $objs; do
@@ -17,9 +19,8 @@ while read -r dir objs; do
     yq -i --from-file "$CLEAN" "$f"
   done
 done <<'LIST'
-gitlab deployment/gitlab service/gitlab service/gitlab-ssh configmap/gitlab-config ingress/gitlab-nrp-nautilus certificate/gitlab-nrp-nautilus role/gitlab-admin rolebinding/gitlab-admin
+gitlab deployment/gitlab service/gitlab service/gitlab-ssh configmap/gitlab-config ingress/gitlab-nrp-nautilus certificate/gitlab-nrp-nautilus
 registry deployment/gitlab-reg service/gitlab-registry service/registry-import-s3 configmap/registry-config ingress/gitlab-registry-nrp-nautilus ingress/gitlab-registry-old-nrp-nautilus servicemonitor/registry statefulset/registry-redis service/registry-redis-headless service/registry-redis-master configmap/registry-redis-config
-runners deployment/gitlab-runner-arm64 deployment/gitlab-runner-arnoc deployment/gitlab-runner-dind deployment/gitlab-runner-docker deployment/gitlab-runner-duo deployment/gitlab-runner-general deployment/gitlab-runner-gitlab deployment/gitlab-runner-sdsc deployment/gitlab-runner-ue4 serviceaccount/runner
 ai-gateway deployment/ai-gateway service/ai-gateway
 database postgresql/gitlab-db
 vms virtualmachine/arm-runner
