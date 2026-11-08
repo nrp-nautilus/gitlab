@@ -64,3 +64,16 @@ data:
         [[runners.kubernetes.services]]
           name = "docker:28-dind"
           alias = "docker"
+          # With DOCKER_TLS_CERTDIR empty, the dind entrypoint starts dockerd on
+          # tcp://0.0.0.0:2375 without --tls=false, and dockerd then sleeps 16s
+          # ("Startup is intentionally being slowed down") before it opens that
+          # listener. --tls=false states the intent and skips the 15s part. Port
+          # 2375 isn't reachable from outside the pod: gitlab-ci-kata denies all
+          # ingress.
+          command = ["--tls=false"]
+          # The runner doesn't wait for services unless they set
+          # HEALTHCHECK_TCP_PORT. With it, the helper container dials
+          # localhost:2375 until dockerd answers, and only then does the job
+          # script start. Without it, scripts that call docker in their first
+          # seconds fail with "Cannot connect to the Docker daemon".
+          environment = ["HEALTHCHECK_TCP_PORT=2375"]
