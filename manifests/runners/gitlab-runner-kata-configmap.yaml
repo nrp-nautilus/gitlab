@@ -14,9 +14,13 @@ data:
       name = "gitlab-runner-kata"
       limit = 3
       output_limit = 32768
+      # container=kube: Kaniko looks for an overlay root to decide it's in a
+      # container; under Kata the root is virtio-fs, so it refuses to build
+      # without this marker. See gitlab-runner-kata-default-configmap.yaml.
       environment = [
         "DOCKER_HOST=tcp://docker:2375",
         "DOCKER_TLS_CERTDIR=",
+        "container=kube",
       ]
       [runners.kubernetes]
         namespace = "gitlab-ci-kata"
