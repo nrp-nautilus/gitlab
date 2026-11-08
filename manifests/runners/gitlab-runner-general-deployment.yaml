@@ -1,3 +1,6 @@
+# Retired 2026-11-07: untagged jobs moved to gitlab-runner-kata-default (Kata VMs
+# in gitlab-ci-kata). This runner ran jobs in the gitlab namespace itself. Its
+# GitLab runner records (2487-2494) were paused at the cutover.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -7,7 +10,7 @@ metadata:
   namespace: gitlab
 spec:
   progressDeadlineSeconds: 600
-  replicas: 8
+  replicas: 0
   revisionHistoryLimit: 2
   selector:
     matchLabels:

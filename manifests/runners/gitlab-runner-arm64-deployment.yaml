@@ -1,3 +1,6 @@
+# Retired 2026-11-07: no jobs in the 14 days before. Its jobs ran in the gitlab
+# namespace itself. Kata has one arm64 node (hcc-nrp-pki-c4038) if arm64 CI is
+# needed again.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -7,7 +10,7 @@ metadata:
   namespace: gitlab
 spec:
   progressDeadlineSeconds: 600
-  replicas: 1
+  replicas: 0
   revisionHistoryLimit: 2
   selector:
     matchLabels:
