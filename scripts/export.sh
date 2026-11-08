@@ -23,9 +23,8 @@ gitlab deployment/gitlab service/gitlab service/gitlab-ssh configmap/gitlab-conf
 registry deployment/gitlab-reg service/gitlab-registry service/registry-import-s3 configmap/registry-config ingress/gitlab-registry-nrp-nautilus ingress/gitlab-registry-old-nrp-nautilus servicemonitor/registry statefulset/registry-redis service/registry-redis-headless service/registry-redis-master configmap/registry-redis-config
 ai-gateway deployment/ai-gateway service/ai-gateway
 database postgresql/gitlab-db
-vms virtualmachine/arm-runner
 storage persistentvolumeclaim/arm-runner-hd persistentvolumeclaim/gitlab persistentvolumeclaim/gitlab-state persistentvolumeclaim/makisu-redis persistentvolumeclaim/runner-hd
 LIST
-for f in "$R"/storage/*.yaml "$R"/vms/*.yaml "$R"/database/*.yaml; do
+for f in "$R"/storage/*.yaml "$R"/database/*.yaml; do
   yq -i '.metadata.annotations["argocd.argoproj.io/sync-options"] = "Prune=false,Delete=false" | .metadata |= (pick(["name","namespace"]) * .)' "$f"
 done

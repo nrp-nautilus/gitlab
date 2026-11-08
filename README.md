@@ -11,9 +11,13 @@ ArgoCD (`argocd/application.yaml`, in the `argo` namespace) syncs everything und
 | `manifests/runners` | GitLab runner Deployments: `gitlab-runner-kata` (tag `docker`), `gitlab-runner-kata-default` (untagged), and `gitlab-runner-gitlab`/`gitlab-runner-sdsc` for other GitLab servers. All run their jobs in Kata VMs in `gitlab-ci-kata` |
 | `manifests/ai-gateway` | Duo AI gateway |
 | `manifests/database` | Zalando `postgresql` cluster `gitlab-db` |
-| `manifests/vms` | KubeVirt VM `arm-runner` (stopped). The docker.sock runner VMs `runner1`/`runner2` were replaced by `gitlab-runner-kata` |
 | `manifests/ci-kata` | Objects in namespace `gitlab-ci-kata` (job pods of `gitlab-runner-kata` and `gitlab-runner-kata-default`): admission policy, NetworkPolicies, quota. The namespace itself is created through the nrp.ai portal, not here: the `nautilus-admission` webhook rejects pods in namespaces without a portal registration |
 | `manifests/storage` | Standalone PVCs (including the 6Ti GitLab data volume) |
+
+The stopped KubeVirt VM `arm-runner` still exists in the namespace but is deliberately not in git. A stopped VM never
+reports Healthy, and the app syncs with `PruneLast=true`, so every sync that pruned something waited for it forever.
+Its disk PVC `arm-runner-hd` is still tracked in `manifests/storage`. The docker.sock runner VMs `runner1`/`runner2`
+were deleted and replaced by `gitlab-runner-kata`.
 
 ## Kata runner (`gitlab-runner-kata`, tag `docker`)
 
