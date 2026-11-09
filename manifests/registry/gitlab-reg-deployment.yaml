@@ -126,6 +126,26 @@ spec:
               value: "15"
             - name: REGISTRY_DATABASE_POOL_MAXIDLE
               value: "5"
+            # Push and delete events go to GitLab, which updates the projects' registry
+            # sizes from them; it ignores pulls and blob events, so they are not sent.
+            # The secret must come before the endpoint list that expands it.
+            - name: NOTIFICATION_SECRET
+              valueFrom:
+                secretKeyRef:
+                  key: secret
+                  name: registry-notification
+            - name: REGISTRY_NOTIFICATIONS_ENDPOINTS
+              value: |
+                - name: gitlab
+                  url: http://gitlab.gitlab.svc/api/v4/container_registry_event/events
+                  headers:
+                    Authorization: ["$(NOTIFICATION_SECRET)"]
+                  timeout: 500ms
+                  maxretries: 5
+                  backoff: 1s
+                  ignoredmediatypes: [application/octet-stream]
+                  ignore:
+                    actions: [pull]
           image: registry.gitlab.com/gitlab-org/build/cng/gitlab-container-registry:v4.40.1-gitlab
           imagePullPolicy: Always
           name: registry
