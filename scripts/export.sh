@@ -20,7 +20,7 @@ while read -r dir objs; do
   done
 done <<'LIST'
 gitlab deployment/gitlab service/gitlab service/gitlab-ssh configmap/gitlab-config ingress/gitlab-nrp-nautilus certificate/gitlab-nrp-nautilus
-registry deployment/gitlab-reg service/gitlab-registry service/registry-import-s3 configmap/registry-config ingress/gitlab-registry-nrp-nautilus ingress/gitlab-registry-old-nrp-nautilus servicemonitor/registry statefulset/registry-redis service/registry-redis-headless service/registry-redis-master configmap/registry-redis-config
+registry deployment/gitlab-reg service/gitlab-registry configmap/registry-config ingress/gitlab-registry-nrp-nautilus ingress/gitlab-registry-old-nrp-nautilus servicemonitor/registry statefulset/registry-redis service/registry-redis-headless service/registry-redis-master configmap/registry-redis-config
 ai-gateway deployment/ai-gateway service/ai-gateway
 database postgresql/gitlab-db
 storage persistentvolumeclaim/arm-runner-hd persistentvolumeclaim/gitlab persistentvolumeclaim/gitlab-state persistentvolumeclaim/makisu-redis persistentvolumeclaim/runner-hd
