@@ -59,6 +59,8 @@ data:
     gitlab_rails['registry_api_url'] = 'https://gitlab-registry.nrp-nautilus.io'
     gitlab_rails['registry_issuer'] = 'gitlab-issuer'
     gitlab_rails['registry_path'] = '/home/git/data/shared/registry'
+    # The registry posts push and delete events with this as the Authorization header.
+    gitlab_rails['registry_notification_secret'] = ENV['REGISTRY_NOTIFICATION_SECRET']
 
     # The ingress sends *.pages.nrp-nautilus.io to port 8090.
     pages_external_url 'https://pages.nrp-nautilus.io'

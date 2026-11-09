@@ -103,6 +103,11 @@ spec:
                 secretKeyRef:
                   key: password
                   name: registry.gitlab-db.credentials.postgresql.acid.zalan.do
+            - name: REGISTRY_NOTIFICATION_SECRET
+              valueFrom:
+                secretKeyRef:
+                  key: secret
+                  name: registry-notification
             - name: SMTP_PASS
               valueFrom:
                 secretKeyRef:
