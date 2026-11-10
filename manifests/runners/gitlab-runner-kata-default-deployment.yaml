@@ -31,7 +31,7 @@ spec:
         # The register init container reads the ConfigMap's template only when
         # the pod starts. Bump this with every change to
         # gitlab-runner-kata-default-config so ArgoCD rolls the pod.
-        nrp-nautilus.io/runner-config-revision: "2"
+        nrp-nautilus.io/runner-config-revision: "3"
     spec:
       serviceAccountName: gitlab-runner-kata-default
       affinity:

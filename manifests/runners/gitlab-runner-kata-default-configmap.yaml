@@ -8,10 +8,18 @@
 # Sizes come from the old gitlab-runner-general jobs (14 days to 2026-11-07,
 # 2,336 jobs): 99% peaked under 2.5 cores, 95% under 2.7 GiB RSS and 99% under
 # 16 GiB. Jobs that need more set KUBERNETES_CPU_LIMIT, KUBERNETES_MEMORY_LIMIT
-# and KUBERNETES_MEMORY_REQUEST, up to the *_overwrite_max_allowed caps. With
-# helper and one service at their caps a pod stays under 16 cores and 32 GB,
-# the nautilus-admission limit for bare pods, so jobs keep working if the
-# namespace loses its pod_runtime_exceptions entry.
+# and KUBERNETES_MEMORY_REQUEST, up to the *_overwrite_max_allowed caps.
+#
+# The memory cap is 50Gi, which is what gitlab-runner-general gave every job.
+# Image builds need more than the old cap of 24Gi: nrp/coder-images' kaniko
+# build of vivado-vitis passed under the old runner's 50Gi limit (job 191297),
+# and here the node OOM-kills its Kata VM at 8Gi (job 193200) and at 24Gi (job
+# 193228). Its esnet and pytorch builds die the same way (jobs 193225,
+# 193226). With helper and one service at their caps a pod stays under 16
+# cores, and under 32 GB as long as the job's memory limit is 24Gi or less.
+# 16 cores and 32 GB are the nautilus-admission limits for bare pods, so a job
+# that asks for more memory than that depends on the namespace's
+# pod_runtime_exceptions entry; jobs at the defaults do not.
 #
 # Under Kata the VM gets 1 vCPU and 2 GiB plus the containers' limits, so nproc
 # inside a job is about cpu_limit + 2, not the node's core count.
@@ -53,8 +61,8 @@ data:
         cpu_limit_overwrite_max_allowed = "12"
         memory_request = "8Gi"
         memory_limit = "8Gi"
-        memory_request_overwrite_max_allowed = "24Gi"
-        memory_limit_overwrite_max_allowed = "24Gi"
+        memory_request_overwrite_max_allowed = "50Gi"
+        memory_limit_overwrite_max_allowed = "50Gi"
         helper_cpu_request = "100m"
         helper_cpu_limit = "1"
         helper_memory_request = "256Mi"
