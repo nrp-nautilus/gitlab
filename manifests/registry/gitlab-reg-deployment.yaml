@@ -146,7 +146,7 @@ spec:
                   ignoredmediatypes: [application/octet-stream]
                   ignore:
                     actions: [pull]
-          image: registry.gitlab.com/gitlab-org/build/cng/gitlab-container-registry:v4.40.1-gitlab
+          image: registry.gitlab.com/gitlab-org/build/cng/gitlab-container-registry:v4.42.0-gitlab
           imagePullPolicy: Always
           name: registry
           ports:
