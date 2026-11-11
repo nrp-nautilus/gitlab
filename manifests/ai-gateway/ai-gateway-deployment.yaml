@@ -59,7 +59,7 @@ spec:
                 secretKeyRef:
                   key: duo_workflow_validation.key
                   name: ai-gateway-jwt
-          image: registry.gitlab.com/gitlab-org/modelops/applied-ml/code-suggestions/ai-assist/model-gateway:self-hosted-v19.1.8-ee
+          image: registry.gitlab.com/gitlab-org/modelops/applied-ml/code-suggestions/ai-assist/model-gateway:self-hosted-v19.5.5-ee
           imagePullPolicy: IfNotPresent
           livenessProbe:
             failureThreshold: 6
