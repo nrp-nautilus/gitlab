@@ -52,7 +52,7 @@ spec:
           operator: Exists
       initContainers:
         - name: register
-          image: gitlab/gitlab-runner:v19.1.5
+          image: gitlab/gitlab-runner:v19.5.3
           imagePullPolicy: IfNotPresent
           command: ["/bin/sh", "-ec"]
           args:
@@ -103,7 +103,7 @@ spec:
               readOnly: true
       containers:
         - name: runner
-          image: gitlab/gitlab-runner:v19.1.5
+          image: gitlab/gitlab-runner:v19.5.3
           imagePullPolicy: IfNotPresent
           args:
             - run
