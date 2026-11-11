@@ -8,7 +8,7 @@ metadata:
   namespace: gitlab
 spec:
   progressDeadlineSeconds: 600
-  replicas: 0
+  replicas: 1
   revisionHistoryLimit: 10
   selector:
     matchLabels:
@@ -168,7 +168,7 @@ spec:
                 secretKeyRef:
                   key: secret
                   name: google-oauth
-          image: gitlab/gitlab-ee:19.2.10-ee.0
+          image: gitlab/gitlab-ee:19.5.4-ee.0
           imagePullPolicy: IfNotPresent
           name: gitlab
           ports:
@@ -238,7 +238,7 @@ spec:
                 case "$k" in *.pub) chmod 0644 "$k";; *) chmod 0600 "$k";; esac
               done
               ls -l /etc/gitlab
-          image: gitlab/gitlab-ee:19.2.10-ee.0
+          image: gitlab/gitlab-ee:19.5.4-ee.0
           imagePullPolicy: IfNotPresent
           name: host-keys
           resources:
