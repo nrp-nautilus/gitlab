@@ -21,6 +21,18 @@
 # that asks for more memory than that depends on the namespace's
 # pod_runtime_exceptions entry; jobs at the defaults do not.
 #
+# Ephemeral storage has no default here. The namespace's LimitRange
+# `ephemeral-storage-default-limit` (live, not in this repo) gives every container a
+# limit of 50Gi and a request of 0, so the scheduler does not count the disk a job
+# uses. Image builds need more: yge/container's DeepBE build was evicted at the 50Gi
+# limit (job 194328), and its tf-gpu builds hold 36 GiB before their own payload.
+# Jobs set KUBERNETES_EPHEMERAL_STORAGE_REQUEST and
+# KUBERNETES_EPHEMERAL_STORAGE_LIMIT, up to 1Ti. A job that sets both to what it
+# needs is placed on a node with that much allocatable disk, and the LimitRange has
+# no maximum of its own. The Kata nodes' disks are about 0.9 TB (c4705, c4719) and
+# 7 TB (c6034): an ask above a node's disk is schedulable only where it fits, so a
+# job should ask for what it uses, not for the cap.
+#
 # Under Kata the VM gets 1 vCPU and 2 GiB plus the containers' limits, so nproc
 # inside a job is about cpu_limit + 2, not the node's core count.
 apiVersion: v1
@@ -63,6 +75,8 @@ data:
         memory_limit = "8Gi"
         memory_request_overwrite_max_allowed = "50Gi"
         memory_limit_overwrite_max_allowed = "50Gi"
+        ephemeral_storage_request_overwrite_max_allowed = "1Ti"
+        ephemeral_storage_limit_overwrite_max_allowed = "1Ti"
         helper_cpu_request = "100m"
         helper_cpu_limit = "1"
         helper_memory_request = "256Mi"
