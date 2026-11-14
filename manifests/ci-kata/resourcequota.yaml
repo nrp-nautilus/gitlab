@@ -3,18 +3,23 @@
 # tests, and hcc-chase-shor-c4719 is nearly full of KubeVirt VMs, so in practice
 # c4705 and c6034 (~50 cores and ~470 GiB not yet requested) carry CI.
 #
-# Per job, counting the kata RuntimeClass overhead (250m, 320Mi):
-#   gitlab-runner-kata (tag docker, 3 at once): requests 3.35 CPU / 52.6Gi,
-#     limits 13.25 CPU / 53.3Gi, mostly the 48Gi dind service.
+# Per job, counting the kata RuntimeClass overhead (250m, 2Gi; the chart's 320Mi
+# let the host cgroup OOM-kill the VM of an image build whose guest page cache
+# filled it, so the live RuntimeClass was raised on 2026-11-14):
+#   gitlab-runner-kata (tag docker, 3 at once): requests 3.35 CPU / 54.3Gi,
+#     limits 13.25 CPU / 55.0Gi, mostly the 48Gi dind service.
 #   gitlab-runner-kata-default (untagged, 10 at once): requests 1.35 CPU /
-#     8.6Gi and limits 5.25 CPU / 9.3Gi by default, at most 2.35 CPU / 50.6Gi
-#     requested and 13.25 CPU / 51.3Gi limits for a job that raises them.
+#     10.3Gi and limits 5.25 CPU / 11.0Gi by default, at most 2.35 CPU / 52.3Gi
+#     requested and 13.25 CPU / 53.0Gi limits for a job that raises them.
 #   gitlab-runner-gitlab and gitlab-runner-sdsc (other GitLab servers, 2 at
 #     once each): sized like the default runner.
-# All four runners full at their defaults use about 290Gi of limits.memory,
-# which leaves room for two default-runner jobs at their caps. If every default
-# job asked for its maximum at once, pod creation would hit this quota and those
-# jobs would fail rather than overload the nodes.
+# All four runners full at their defaults use about 319Gi of limits.memory,
+# which leaves room for one default-runner job at its cap (42Gi more than a job
+# at the defaults), not two. If every default job asked for its maximum at once,
+# pod creation would hit this quota and those jobs would fail rather than
+# overload the nodes. Ephemeral storage is not counted here: the namespace's
+# LimitRange gives every container a 50Gi limit and the runner lets a job ask
+# for up to 1Ti, so the nodes' disks are the limit.
 apiVersion: v1
 kind: ResourceQuota
 metadata:
