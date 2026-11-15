@@ -1,0 +1,91 @@
+# Values for the kata-deploy chart (oci://ghcr.io/kata-containers/kata-deploy-charts/kata-deploy, 4.2.0), read by the
+# Argo CD Application in argocd/kata-deploy.yaml. Only what differs from the chart's defaults is here.
+#
+# Until 2026-11 kata-deploy was a Helm release installed by hand (namespace kata-containers; revision 23 deployed,
+# 24-26 failed on the post-upgrade hook's timeout). These values reproduce revision 26 (the five nodes below), plus
+# the qemu-runtime-rs overhead and the TEE node selectors explained further down: rendered with `helm template`, they
+# give the same 43 objects as revision 26 except the RuntimeClasses `kata` and `kata-qemu-runtime-rs`.
+
+# One dispatcher Job (a PostSync hook under Argo) installs Kata on each node through per-node Jobs. The chart refuses
+# to switch an existing install between `job` and `daemonset`.
+deploymentMode: job
+
+# The default RuntimeClass `kata` (handler kata-qemu-runtime-rs). The ci-kata admission policy in this repo requires
+# runtimeClassName == kata for every pod in gitlab-ci-kata.
+runtimeClasses:
+  createDefault: true
+
+snapshotter:
+  setup: []
+
+# The nodes that get Kata. Removing a node here makes it lose Kata at the next sync; adding one installs it there.
+affinity:
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: kubernetes.io/hostname
+              operator: In
+              values:
+                - hcc-nrp-pki-c4038.unl.edu
+                - hcc-nrp-shor-c6034.unl.edu
+                - hcc-chase-shor-c4705.unl.edu
+                - hcc-chase-shor-c4719.unl.edu
+                - perfsonar.csusb.edu
+tolerations:
+  - key: nautilus.io/testing
+    operator: Exists
+  - key: nautilus.io/hardware
+    operator: Exists
+
+verification:
+  namespace: kata-containers
+
+shims:
+  # The VMM (qemu, virtiofsd, the shim) runs inside the pod's cgroup, and the guest's RAM is the sum of the containers'
+  # limits. With the chart's 320Mi a build that fills the guest's page cache gets the whole VM OOM-killed by the host
+  # (exit 255 in CI, node event "OOMKilling ... qemu-system-x86"). The chart applies this to both `kata` and
+  # `kata-qemu-runtime-rs`. manifests/ci-kata/resourcequota.yaml counts it.
+  qemu-runtime-rs:
+    runtimeClass:
+      overhead:
+        memory: 2Gi
+
+  qemu-nvidia-gpu:
+    runtimeClass:
+      nodeSelector: null
+  qemu-nvidia-gpu-runtime-rs:
+    dropIn: |
+      [hypervisor.qemu]
+      shared_fs = "virtio-fs"
+      path = "/opt/kata/bin/qemu-system-x86_64"
+      valid_hypervisor_paths = ["/opt/kata/bin/qemu-system-x86_64"]
+    runtimeClass:
+      nodeSelector: null
+
+  # The chart gives these TEE classes their hardware selector only when it finds node-feature-discovery with Helm's
+  # `lookup`, which returns nothing under Argo CD. Stated here so they keep the selectors the Helm installs gave them.
+  qemu-snp:
+    runtimeClass:
+      nodeSelector:
+        amd.feature.node.kubernetes.io/snp: "true"
+  qemu-snp-runtime-rs:
+    runtimeClass:
+      nodeSelector:
+        amd.feature.node.kubernetes.io/snp: "true"
+  qemu-tdx:
+    runtimeClass:
+      nodeSelector:
+        intel.feature.node.kubernetes.io/tdx: "true"
+  qemu-tdx-runtime-rs:
+    runtimeClass:
+      nodeSelector:
+        intel.feature.node.kubernetes.io/tdx: "true"
+  qemu-se:
+    runtimeClass:
+      nodeSelector:
+        feature.node.kubernetes.io/cpu-security.se.enabled: "true"
+  qemu-se-runtime-rs:
+    runtimeClass:
+      nodeSelector:
+        feature.node.kubernetes.io/cpu-security.se.enabled: "true"

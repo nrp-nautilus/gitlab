@@ -1,0 +1,39 @@
+# kata-deploy, which installs Kata on the nodes the CI job pods run on, as an Argo CD Application. Applied by hand
+# (`kubectl apply -f argocd/kata-deploy.yaml`), like application.yaml, and deliberately NOT under manifests/: the
+# `gitlab` app prunes, and deleting this Application runs the chart's pre-delete hook (Argo CD maps it to PreDelete),
+# whose cleanup Job removes Kata from every node. Never delete it, or `helm uninstall` the old release, unless that is
+# the intent.
+#
+# The chart comes from its OCI registry; the values come from kata-deploy/values.yaml in this repo.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: kata-deploy
+  namespace: argo
+spec:
+  project: default
+  sources:
+    - repoURL: oci://ghcr.io/kata-containers/kata-deploy-charts/kata-deploy
+      targetRevision: 4.2.0
+      path: .
+      helm:
+        releaseName: kata-deploy
+        valueFiles:
+          - $values/kata-deploy/values.yaml
+    - repoURL: https://github.com/nrp-nautilus/gitlab.git
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kata-containers
+  syncPolicy:
+    automated:
+      # Never let a values change delete a RuntimeClass that running pods use.
+      prune: false
+      # Every sync runs the install dispatcher (a PostSync hook), which reinstalls Kata on each node and restarts its
+      # containerd. Changes go through git, at a time when no CI job is mid-build, not through drift correction.
+      selfHeal: false
+    syncOptions:
+      - CreateNamespace=false
+      # Takes over the objects the Helm release created.
+      - ServerSideApply=true

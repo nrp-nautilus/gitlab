@@ -42,6 +42,22 @@ The guard rails, all of which must stay in place:
 change too), so `nautilus-admission` doesn't cap its bare pods at 16 cores / 32 GB of limits or 6 hours. Docker-build
 jobs need that (dind alone is 48Gi). If the entry is lost, they fail to start.
 
+## kata-deploy (`argocd/kata-deploy.yaml`, `kata-deploy/values.yaml`)
+
+Kata itself is installed on the nodes by the kata-deploy chart, as the Argo CD Application `kata-deploy` (namespace
+`argo`, destination `kata-containers`), which takes the chart from `oci://ghcr.io/kata-containers/kata-deploy-charts`
+and its values from `kata-deploy/values.yaml`; it takes over the Helm release `kata-deploy` that used to be upgraded by
+hand. Both files sit outside `manifests/`, so the `gitlab` app neither applies nor prunes them; the Application is
+applied by hand with `kubectl apply -f argocd/kata-deploy.yaml`.
+
+- A change to `kata-deploy/values.yaml` on `main` syncs on its own, and every sync runs the install dispatcher (the
+  chart's post-upgrade hook), which reinstalls Kata on each node and restarts containerd there. Push such changes when no
+  CI job is mid-build in `gitlab-ci-kata`.
+- Never delete the Application, and never `helm uninstall kata-deploy`: both run the chart's pre-delete cleanup, which
+  removes Kata from every node.
+- The node list is in the values (`affinity`). The `qemu-runtime-rs` overhead (2Gi, used by the `kata` class) is there
+  too, and `manifests/ci-kata/resourcequota.yaml` counts it.
+
 ## Default runner (`gitlab-runner-kata-default`, untagged)
 
 The instance's default runner: it runs untagged jobs, and jobs tagged `kata-default`, in the same namespace, on the
