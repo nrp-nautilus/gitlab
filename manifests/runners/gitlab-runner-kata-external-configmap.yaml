@@ -20,6 +20,8 @@ data:
       limit = 2
       output_limit = 32768
       environment = ["container=kube"]
+      [runners.feature_flags]
+        FF_USE_ADVANCED_POD_SPEC_CONFIGURATION = true
       [runners.kubernetes]
         namespace = "gitlab-ci-kata"
         runtime_class_name = "kata"
@@ -48,6 +50,17 @@ data:
         service_memory_limit = "1Gi"
         service_memory_request_overwrite_max_allowed = "4Gi"
         service_memory_limit_overwrite_max_allowed = "4Gi"
+        # HTTP/1.1 for the helper's cache and artifact uploads through the cluster's proxies
+        [[runners.kubernetes.pod_spec]]
+          name = "helper-http1"
+          patch_type = "strategic"
+          patch = '''
+            containers:
+              - name: helper
+                env:
+                  - name: GODEBUG
+                    value: http2client=0
+          '''
         [runners.kubernetes.node_selector]
           "kubernetes.io/arch" = "amd64"
         [runners.kubernetes.node_tolerations]
@@ -61,6 +74,8 @@ data:
       limit = 2
       output_limit = 32768
       environment = ["container=kube"]
+      [runners.feature_flags]
+        FF_USE_ADVANCED_POD_SPEC_CONFIGURATION = true
       [runners.kubernetes]
         namespace = "gitlab-ci-kata"
         runtime_class_name = "kata"
@@ -89,6 +104,17 @@ data:
         service_memory_limit = "1Gi"
         service_memory_request_overwrite_max_allowed = "4Gi"
         service_memory_limit_overwrite_max_allowed = "4Gi"
+        # HTTP/1.1 for the helper's cache and artifact uploads through the cluster's proxies
+        [[runners.kubernetes.pod_spec]]
+          name = "helper-http1"
+          patch_type = "strategic"
+          patch = '''
+            containers:
+              - name: helper
+                env:
+                  - name: GODEBUG
+                    value: http2client=0
+          '''
         [runners.kubernetes.node_selector]
           "kubernetes.io/arch" = "amd64"
         [runners.kubernetes.node_tolerations]

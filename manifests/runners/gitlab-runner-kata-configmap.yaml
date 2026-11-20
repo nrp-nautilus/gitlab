@@ -22,6 +22,8 @@ data:
         "DOCKER_TLS_CERTDIR=",
         "container=kube",
       ]
+      [runners.feature_flags]
+        FF_USE_ADVANCED_POD_SPEC_CONFIGURATION = true
       [runners.kubernetes]
         namespace = "gitlab-ci-kata"
         runtime_class_name = "kata"
@@ -45,6 +47,17 @@ data:
         helper_cpu_limit = "1"
         helper_memory_request = "256Mi"
         helper_memory_limit = "1Gi"
+        # HTTP/1.1 for the helper's cache and artifact uploads through the cluster's proxies
+        [[runners.kubernetes.pod_spec]]
+          name = "helper-http1"
+          patch_type = "strategic"
+          patch = '''
+            containers:
+              - name: helper
+                env:
+                  - name: GODEBUG
+                    value: http2client=0
+          '''
         [runners.kubernetes.node_selector]
           "kubernetes.io/arch" = "amd64"
         [runners.kubernetes.node_tolerations]

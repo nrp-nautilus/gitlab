@@ -25,7 +25,7 @@ spec:
       annotations:
         # The template is read only at pod start; bump this with every change
         # to its key in gitlab-runner-kata-external-config.
-        nrp-nautilus.io/runner-config-revision: "1"
+        nrp-nautilus.io/runner-config-revision: "2"
     spec:
       serviceAccountName: gitlab-runner-kata-external
       affinity:
