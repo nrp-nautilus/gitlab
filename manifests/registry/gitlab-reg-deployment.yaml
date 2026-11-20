@@ -42,6 +42,9 @@ spec:
                       - sdsu-rci
       containers:
         - env:
+            # HTTP/1.1 to S3: through the cluster's proxies an HTTP/2 upload moves one 64 KiB window per round trip.
+            - name: GODEBUG
+              value: http2client=0
             - name: REGISTRY_HTTP_ADDR
               value: 0.0.0.0:5000
             - name: REGISTRY_HTTP_DEBUG_PROMETHEUS_ENABLED
